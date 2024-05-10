@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import deque
 
-from k_bucket import KBucket, NodeTriple
+from .k_bucket import KBucket, NodeTuple
 
 K = 4
 
@@ -17,7 +17,7 @@ class TreeNode(Tree):
 
 
 def has_prefix(node_id: int, prefix: str):
-    return NodeTriple.node_id_binary_representation(node_id).startswith(prefix)
+    return NodeTuple.node_id_binary_representation(node_id).startswith(prefix)
 
 
 class TreeLeaf(Tree):
@@ -45,7 +45,7 @@ class TreeRightLeaf(TreeLeaf):
         self.bucket_id = bucket_id
         self.parent = parent
 
-    def __split_bucket_and_add_new_peer(self, new_peer: NodeTriple):
+    def __split_bucket_and_add_new_peer(self, new_peer: NodeTuple):
 
         # Creation of two new Leaves
         right_leaf_id: str = self.bucket_id + "1"
@@ -66,7 +66,7 @@ class TreeRightLeaf(TreeLeaf):
             self.parent.right = new_node
 
         # The elements contained in the bucket of the old leaf are inserted in the two new buckets
-        peers: deque[NodeTriple] = self.bucket.get_peers()
+        peers: deque[NodeTuple] = self.bucket.get_peers()
         for peer in reversed(peers):
             if has_prefix(node_id=peer.node_id, prefix=new_right_leaf.bucket_id):
                 new_right_leaf.update_bucket(peer.ip_address, peer.port, peer.node_id)
@@ -86,10 +86,20 @@ class TreeRightLeaf(TreeLeaf):
         # If the bucket is full, we split the bucket into two new buckets
         if ((not self.bucket.contains(ip_address, port, node_id))
                 and self.bucket.is_full()):
-            self.__split_bucket_and_add_new_peer(NodeTriple(ip_address, port, node_id))
+            self.__split_bucket_and_add_new_peer(NodeTuple(ip_address, port, node_id))
             return
         # If the bucket is not full, we simply update the bucket with the new peer
         else:
             self.bucket.update_bucket(ip_address, port, node_id)
+
+
+class RoutingTable:
+
+    def __init__(self, peer_node_id : int):
+        self.peer_node_id = peer_node_id
+        # The bucket id represent the
+        kbucket : KBucket = KBucket("", )
+        self.tree = TreeRightLeaf()
+
 
 

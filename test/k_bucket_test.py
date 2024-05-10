@@ -2,7 +2,7 @@ from collections import deque
 
 import pytest
 from context import kademlia
-from kademlia.k_bucket import KBucket, NodeTriple
+from kademlia.k_bucket import KBucket, NodeTuple
 import random
 from kademlia.dummy import *
 
@@ -19,7 +19,7 @@ def k_bucket_constructor_test():
     x1 = ""
     x2 = random.randint(0, 100000)
     c = KBucket(x1, x2)
-    assert (x1 == c.bucket_id and x2 == c.k)
+    assert (x1 == c.bucket_prefix and x2 == c.k)
     assert (c.size == 0)
     assert (len(c.bucket) == 0)
 
@@ -28,16 +28,16 @@ def node_triple_constructor_test():
     # invalid parameters
     # negative port
     with pytest.raises(ValueError):
-        a = NodeTriple("", -1, 0)
+        a = NodeTuple("", -1, 0)
     # negative node_id
     with pytest.raises(ValueError):
-        a = NodeTriple("", 0, -1)
+        a = NodeTuple("", 0, -1)
 
     # test with random values
     a = random.randint(-5, 10000)
     b = random.randint(0, 1000000)
     c = random.randint(0, 100000)
-    result = NodeTriple(str(a), b, c)
+    result = NodeTuple(str(a), b, c)
     assert (result.ip_address == str(a) and result.node_id == c and result.port == b)
 
 
@@ -137,10 +137,10 @@ def update_bucket_test():
 
 
 def node_triple_binary_repr_test():
-    node = NodeTriple("", 1, 5)
+    node = NodeTuple("", 1, 5)
 
     # Assume a key length of 4 : change global variable KEY_LENGTH
-    assert (NodeTriple.node_id_binary_representation(node.node_id) == "0101")
+    assert (NodeTuple.node_id_binary_representation(node.node_id) == "0101")
 
 
 # k_bucket_constructor_test()
