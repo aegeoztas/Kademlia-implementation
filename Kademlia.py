@@ -1,14 +1,15 @@
-
-
+from dotenv import  load_dotenv
+from Network import Connection
+import os
 """
 the kademlia librarz to implement the functions of kademlia protocol.
 uses communication.py to communicate with others. 
 """
 
-def PUT():
+def PUT(Key, Value, connection=None ):
     """
 This message is used to ask the DHT module that the given key-value pair should be stored.
-The field TTL indicates the time in seconds this key-value pair should be stored in
+The field TTL indiates the time in seconds this key-value pair should be stored in
 the network before it is considered as expired. Note that this is just a hint. The peers may
 have their own timeouts configured which may be shorter than the value in TTL. In those
 cases the content could be expired beforehand.
@@ -23,16 +24,35 @@ storing the given key-value pair. No confirmation is needed for the PUT operatio
 of and storage of empty values is not allowed.
 
 message itself contains
-size(128b) + DHT PUT(128b)
-TLL (128b)+ replication(64b) +reserved(64b)
-key (256b)
-value (256b)
+size(16b\2B) + DHT PUT(16b\2B)
+TLL (16b\2B)+ replication(8b\1B) +reserved(8b\1B)
+key (256b\32B)
+value (256b\32B)
     """
+    message_type = os.getenv('DHT_PUT')
     TLL = 180
     replication = 2
+    reserved = 0 # reserved for future use so just use 0
+
+
+    data = TLL.to_bytes(2, byteorder='big')
+    data += replication.to_bytes(1, byteorder='big')
+    data += reserved.to_bytes(1, byteorder='big')
+    data += Key.to_bytes(32, byteorder='big')
+    data += Value.to_bytes((Value.bit_length() + 7)//8, byteorder='big')
+    if connection:
+        connection.send_message(message_type, data)
+    else:
+        load_dotenv()
+        IP = os.getenv('IP')
+        PORT = os.getenv('PORT')
+        connection = Connection(IP, PORT)
+        connection.connect()
+        connection.send_message(message_type,data)
+        connection.close()
+
+
     # reserved is just empty space
 
-    pass
-def GET():
-    pass
-
+def GET(Key):
+    message_type = os.getenv('DHT_PUT')
