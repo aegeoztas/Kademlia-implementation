@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import deque
 
-from .k_bucket import KBucket, NodeTuple
+from .k_bucket import KBucket, NodeTuple, has_prefix
 
 K = 4
 
@@ -16,8 +16,7 @@ class TreeNode(Tree):
         self.right = right
 
 
-def has_prefix(node_id: int, prefix: str):
-    return NodeTuple.node_id_binary_representation(node_id).startswith(prefix)
+
 
 
 class TreeLeaf(Tree):

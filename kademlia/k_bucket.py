@@ -5,7 +5,7 @@ from kademlia.dummy import ping_node
 from .distance import KEY_LENGTH
 
 MAX_PORT_NUMBER = 65535
-MAX_KEY_VALUE = math.pow(2, KEY_LENGTH)  # The maximum value a key of an object or node id can have
+MAX_KEY_VALUE = math.pow(2, KEY_LENGTH) - 1  # The maximum value a key of an object or node id can have
 K = 4  # The capacity of one single K-Bucket
 
 
@@ -39,6 +39,15 @@ class NodeTuple:
         :return: The node ID in binary representation stored in a string.
         """
         return format(node_id, f'0{KEY_LENGTH}b')
+
+
+def has_prefix(node_id: int, prefix: str):
+    """
+    The method has_prefix returns true if the node_id matches the prefix
+    :param node_id: the key of the node (int)
+    :param prefix: the prefix (str)
+    """
+    return NodeTuple.node_id_binary_representation(node_id).startswith(prefix)
 
 
 class KBucket:
@@ -76,6 +85,8 @@ class KBucket:
             raise ValueError("Node ID must be greater than or equal to zero.")
         if node_id > MAX_KEY_VALUE:
             raise ValueError("Node ID must be in the key space range.")
+        if not has_prefix(node_id, self.bucket_prefix):
+            raise ValueError("Node ID must match the prefix of the bucket")
 
         # The node involved in the update
         candidate_node: NodeTuple = NodeTuple(ip_address, port, node_id)
