@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import deque
 
-from .distance import KEY_LENGTH
+from .distance import KEY_LENGTH, key_distance
 from .k_bucket import KBucket, NodeTuple, has_prefix, MAX_PORT_NUMBER, MAX_KEY_VALUE
 
 
@@ -29,12 +29,21 @@ class TreeNode(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_nearest_peers(self, distance: int, nb_of_peers) -> list[NodeTuple]:
+        """
+        The method get_nearest_peers is a recursive function that returns the n peers that have their value of
+        distance the closest to the value distance given as parameter.
+        """
+        pass
+
 
 class InternalNode(TreeNode):
     """
     An internal node does not contain itself peer information's and hence does not contain a K-Bucket.
     However, it defines a subtree that contains all peers whose distance in binary notation matches its prefix.
     """
+
     def __init__(self, host_key: int = None, prefix: str = None, left: TreeNode = None, right: TreeNode = None):
         super().__init__(host_key, prefix)
         self.left: TreeNode = left
@@ -60,6 +69,40 @@ class InternalNode(TreeNode):
         else:
             self.left.update(new_peer)
 
+    def get_nearest_peers(self, distance: int, nb_of_peers) -> list[NodeTuple]:
+        """
+        The method get_nearest_peers called on an internal node will recursively call the same method on the children
+        with the appropriate distance prefix. If the number of peers returned by the children is smaller than the number
+        asked, it will ask its other children to returns the remaining closest peers.
+        """
+
+        # If the distance given in parameter matches the prefix of the right children, the method of the right children
+        # is called.
+        if has_prefix(distance, self.right.prefix):
+            peers: list[NodeTuple] = self.right.get_nearest_peers(distance, nb_of_peers)
+            # If the number of peers is not sufficient, the left children is asked to return the other closest peers.
+            nb_of_received_peers = len(peers)
+            if nb_of_received_peers < nb_of_peers:
+                # Computation of the distance that will be used as parameter for the call on the left children.
+                # This is required for getting the peers in the right order and to avoid an error.
+                distance_for_left_bucket = int((self.right.prefix[:-1] + "1").ljust(KEY_LENGTH, "0"), 2)
+                peers_from_left: list[NodeTuple] = self.left.get_nearest_peers(distance_for_left_bucket,
+                                                                               nb_of_peers - nb_of_received_peers)
+                # The peers from the left children are added at the tail of the list of peers
+                peers.extend(peers_from_left)
+            return peers
+
+        # The case for the left children is symmetric.
+        else:
+            peers: list[NodeTuple] = self.left.get_nearest_peers(distance, nb_of_peers)
+            nb_of_received_peers = len(peers)
+            if nb_of_received_peers < nb_of_peers:
+                distance_for_right_bucket = int(("0" + self.left.prefix).ljust(KEY_LENGTH, "1"), 2)
+                peers_from_right: list[NodeTuple] = self.right.get_nearest_peers(distance_for_right_bucket,
+                                                                                 nb_of_peers - nb_of_received_peers)
+                peers.extend(peers_from_right)
+            return peers
+
 
 class Leaf(TreeNode):
     """
@@ -67,7 +110,7 @@ class Leaf(TreeNode):
     matches the prefix of the bucket.
     """
 
-    def __init__(self, host_key: int, prefix: str,  bucket: KBucket):
+    def __init__(self, host_key: int, prefix: str, bucket: KBucket):
         super().__init__(host_key, prefix)
         self.bucket: KBucket = bucket
 
@@ -78,6 +121,19 @@ class Leaf(TreeNode):
         with at least one 1, the leaf with the bucket may be split if the bucket is full.
         """
         pass
+
+    def get_nearest_peers(self, distance: int, nb_of_peers) -> list[NodeTuple]:
+        """
+        The method get_nearest_peers called on a leaf will simply return the content of the bucket. The list of peers
+        will be sorted by their closeness to the distance given as parameter. This is required because the peers are
+        sorted by most recently seen in the K-Bucket.
+        """
+
+        # The content of the bucket is sorted by the closest value to the distance
+        k_bucket_content_sorted = sorted(
+            self.bucket.get_peers(), key=lambda x: abs(distance - x.key_distance_to(self.host_key)))
+
+        return k_bucket_content_sorted[:nb_of_peers]
 
 
 class LeftLeaf(Leaf):
@@ -112,7 +168,7 @@ class RightLeaf(Leaf):
     buckets that are attributed to its children.
     """
 
-    def __init__(self, host_key: int,prefix: str, bucket: KBucket, parent=None):
+    def __init__(self, host_key: int, prefix: str, bucket: KBucket, parent=None):
         super().__init__(host_key, prefix, bucket)
         self.parent: InternalNode = parent
 
@@ -134,6 +190,7 @@ class RightLeaf(Leaf):
         new_right_leaf.parent = new_node
 
         # Update the pointer of the parent of the current leaf to the new node
+        self.parent.right = new_node
 
         # The elements contained in the bucket of the old leaf are inserted in the two new buckets
         peers: deque[NodeTuple] = self.bucket.get_peers()
@@ -177,10 +234,14 @@ class TreeRootPointer(InternalNode):
     A TreeRootPointer is a simply a pointer to the root of the tree datastructure that represent the routing table.
     It is technically an InternalNode in order to make it easier to split the root when it's a leaf at the start.
     """
+
     def __init__(self):
         super().__init__()
 
     def update(self, new_peer: NodeTuple):
+        """
+        The method update will simply call the update method on the root.
+        """
         self.right.update(new_peer)
 
     def set_root(self, root: TreeNode):
@@ -189,17 +250,37 @@ class TreeRootPointer(InternalNode):
     def get_root(self):
         return self.right
 
+    def get_nearest_peers(self, distance: int, nb_of_peers) -> list[NodeTuple]:
+        """
+        The method get_nearest_peers called on a root pointer will simply call the method of the root.
+        """
+        return self.right.get_nearest_peers(distance, nb_of_peers)
+
 
 class RoutingTable:
+    """
+    The routing table contains the contact information of the other peers. It uses the dynamic tree data structure
+    previously defined. Peer data are placed in the tree according to their xor key distance from the host key.
+    """
 
     def __init__(self, host_key: int):
-        self.host_key = host_key
+        """
+        The host key is the key of the local node.
+        At the start, the tree consists only of one leaf that contains a K-bucket that covers the entire distance
+        prefix range.
+        """
+        self.host_key: int = host_key
         k_bucket: KBucket = KBucket("")
-        self.root_container = TreeRootPointer()
-        root: TreeNode = RightLeaf(host_key, "", k_bucket, self.root_container)
-        self.root_container.set_root(root)
+        self.root_pointer: TreeRootPointer = TreeRootPointer()
+        root: TreeNode = RightLeaf(host_key, "", k_bucket, self.root_pointer)
+        self.root_pointer.set_root(root)
 
     def update_table(self, ip_address: str, port: int, node_id: int):
+        """
+        The method update_table is called each time that the local peer receive a message from the network. It updates
+        the routing table information with the contact details of the sender and in accordance with the kademlia
+        protocol.
+        """
 
         # Verification that the parameters are valid
         if port < 0 or port > MAX_PORT_NUMBER:
@@ -209,6 +290,15 @@ class RoutingTable:
         if node_id > MAX_KEY_VALUE:
             raise ValueError("Node ID must be in the key space range.")
 
+        # As the data structure store NodeTuple's, it is needed to create one for the sender information
         new_peer = NodeTuple(ip_address, port, node_id)
 
-        self.root_container.get_root().update(new_peer)
+        # The update method is called on the root and the modification will be done recursively on the tree.
+        self.root_pointer.get_root().update(new_peer)
+
+    def get_nearest_peers(self, key: int, nb_of_peers) -> list[NodeTuple]:
+        """
+        The method get_nearest_peers returns the information of the n closest peer to the key value given as parameter.
+        If there is less than n peers in the routing table, all peers will be returned.
+        """
+        return self.root_pointer.get_nearest_peers(key_distance(self.host_key, key), nb_of_peers)
