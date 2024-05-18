@@ -27,7 +27,7 @@ def Connection():
         message = struct.pack('>HH', len(data) + 4, message_type) + data
         self.socket.sendall(message)
 
-    def receive_message(self, response_size):
+    def receive_known_message(self, response_size):
         """ Receive a message and extract the type and data
         return data as byte so no need to turn it to bytes in a later time
     #
@@ -41,3 +41,15 @@ def Connection():
         #TODO add differencaiting logic for different DHT responses
         return message_type, data
 
+    def receive_message(self):
+        """ Receive a message and extract the type and data
+        return data as byte so no need to turn it to bytes in a later time
+        """
+        full_message = self.socket.recv(4)
+        print(f"recieved message:{full_message}")
+        # Unpack the header from the first 8 bytes
+        size = int.from_bytes(full_message[:2], byteorder='big')
+        message_type = int.from_bytes(full_message[2:4], byteorder='big')
+        data = self.socket.recv(size-2)
+        #TODO add differencaiting logic for different DHT responses
+        return message_type, data

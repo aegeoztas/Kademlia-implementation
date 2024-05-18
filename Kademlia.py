@@ -54,5 +54,25 @@ value (256b\32B)
 
     # reserved is just empty space
 
-def GET(Key):
-    message_type = os.getenv('DHT_PUT')
+def GET(Key, connection=None ):
+    message_type = os.getenv('DHT_GET')
+    data = Key.to_bytes(32, byteorder='big')
+    if connection:
+        connection.send_message(message_type, data)
+    else:
+        load_dotenv()
+        IP = os.getenv('IP')
+        PORT = os.getenv('PORT')
+        connection = Connection(IP, PORT)
+        connection.connect()
+        connection.send_message(message_type,data)
+    # No imediate reply should be expected.
+    # Should we create a thread for this?
+    recieved_type, recieved_data = connection.receive_message()
+    if recieved_type ==  os.getenv('DHT_SUCCESS'):
+
+    elif recieved_type == os.getenv('DHT_FAILURE'):
+
+        return None
+    else:
+        print(f'something messed up recieved {recieved_type} instead of {message_type}')
