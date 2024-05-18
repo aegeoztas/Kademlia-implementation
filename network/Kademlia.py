@@ -55,6 +55,10 @@ value (256b\32B)
     # reserved is just empty space
 
 def GET(Key, connection=None ):
+    """
+    Sends a get message using key sends a get query to the tree, then im
+
+    """
     message_type = os.getenv('DHT_GET')
     data = Key.to_bytes(32, byteorder='big')
     if connection:
@@ -67,12 +71,56 @@ def GET(Key, connection=None ):
         connection.connect()
         connection.send_message(message_type,data)
     # No imediate reply should be expected.
-    # Should we create a thread for this?
+    # Should we create a thread for this? no that'd be stupid
+
     recieved_type, recieved_data = connection.receive_message()
+
     if recieved_type ==  os.getenv('DHT_SUCCESS'):
-
+        key = recieved_data[:32]
+        value = recieved_data[32:]
+        return key,value
     elif recieved_type == os.getenv('DHT_FAILURE'):
-
-        return None
+        key = recieved_data[:32]
+        return key, None
     else:
         print(f'something messed up recieved {recieved_type} instead of {message_type}')
+        return None, None
+
+
+def SUCCESS(Key, Value, connection=None ):
+    """
+    send a successful response containing key and found value
+    """
+    message_type = os.getenv('DHT_SUCCESS')
+
+    data = Key.to_bytes(32, byteorder='big')
+    data += Value.to_bytes((Value.bit_length() + 7) // 8, byteorder='big')
+    if connection:
+        connection.send_message(message_type, data)
+    else:
+        load_dotenv()
+        IP = os.getenv('IP')
+        PORT = os.getenv('PORT')
+        connection = Connection(IP, PORT)
+        connection.connect()
+        connection.send_message(message_type, data)
+        connection.close()
+
+def FAILURE(Key, Value, connection=None ):
+    """
+    send a successful response containing key and found value
+    """
+    message_type = os.getenv('DHT_FAILURE')
+
+    data = Key.to_bytes(32, byteorder='big')
+
+    if connection:
+        connection.send_message(message_type, data)
+    else:
+        load_dotenv()
+        IP = os.getenv('IP')
+        PORT = os.getenv('PORT')
+        connection = Connection(IP, PORT)
+        connection.connect()
+        connection.send_message(message_type, data)
+        connection.close()
