@@ -2,7 +2,7 @@ import random
 import argparse
 import asyncio
 from socket import AF_INET
-from kademlia.routing_table import InternalNode, TreeNode,Leaf
+from kademlia.routing_table import RoutingTable
 from kademlia.k_bucket import NodeTuple
 from network.Messages import GET, PUT,SUCCESS,FAILURE
 from network.Network import Connection
@@ -17,7 +17,7 @@ DHT_GET = 651
 DHT_SUCCESS = 652
 DHT_FAILURE = 653
 
-async def handle_client(reader, writer):
+async def handle_connection(reader, writer,kbucket,rtable):
     connection = Connection()
     connection.connect(reader, writer)
     try:
@@ -52,6 +52,14 @@ async def handle_client(reader, writer):
         writer.close()
         await writer.wait_closed()
 
+def handle_storage():
+    """
+    this function implements a kademlia tree like structure.
+
+    creates internal and left right nodes.
+    """
+
+    # routing table requires an internal node
 
 def main():
 
@@ -77,15 +85,24 @@ def main():
     if args.port is not None:
         port = args.port
 
+
     # our node needs to have a k bucket
-    # create a key value pair
+    # in dht put they have a 16 bit place
+    # we are going to use first 8 as a dht id, should be enough
+    local_node_id = random.getrandbits(0, 255)
+    table: RoutingTable = RoutingTable(local_node_id)
+    # routing table is only for knowing where to send messages and know which peers are closest to us in the abstract way
+
+
 
 
     # TODO implement storage lock
     loop = asyncio.get_event_loop()
-    #handler = lambda r, w, mhandler=handle_client: handle_client(r, w,mhandler )
+    # create a lambda func that takes reader r, writer w, m(essage)handler
+    # returns handle_client(r, w, mhandler)
+    handler = lambda r, w, kbucket="kbucket",rtable="rtable": handle_connection(r, w, kbucket, rtable)
 
-    server =  asyncio.start_server(handle_client, host=host, port=port,
+    server =  asyncio.start_server(handler, host=host, port=port,
                                     family=AF_INET,
                                     reuse_address=True,
                                     reuse_port=True )

@@ -37,6 +37,13 @@ class TreeNode(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_node_bucket(self, node_key: int) :
+        """
+        The method get_node is a recursive function that returns node object with the given key
+        by recursively search it.
+        """
+        pass
 
 class InternalNode(TreeNode):
     """
@@ -102,8 +109,24 @@ class InternalNode(TreeNode):
                                                                                  nb_of_peers - nb_of_received_peers)
                 peers.extend(peers_from_right)
             return peers
+    def get_node_bucket(self, node_key: int):
+        """
+        As an internal node does not contain a K-Bucket, the method get_node_bucket will recursively call the get_node_bucket method
+        of the right or left child depending on the prefix of the distance of the node.
+        """
 
+        if not has_prefix(key_distance(node_key,self.host_key), self.prefix):
+            raise ValueError("The node should not be searched for in this subtree because the binary representation \
+                   of the distance does not match the prefix of the subtree")
 
+        right_prefix: str = self.prefix + "0"
+
+        # If the peer prefix matches the prefix of the right child we call the get_node method of the right child.
+        # Otherwise, the method of the left child is called.
+        if has_prefix(key_distance(node_key,self.host_key), right_prefix):
+            self.right.get_node_bucket(node_key)
+        else:
+            self.left.get_node_bucket(node_key)
 class Leaf(TreeNode):
     """
     All leaf nodes contain a K-Bucket that stores the information of the peers whose distance
@@ -134,6 +157,15 @@ class Leaf(TreeNode):
             self.bucket.get_peers(), key=lambda x: abs(distance - x.key_distance_to(self.host_key)))
 
         return k_bucket_content_sorted[:nb_of_peers]
+
+    def get_node_bucket(self,node_key: int):
+        """
+        get_node_bucket method will get the leaf at this point if it matches its id
+        """
+        if self.host_key != node_key:
+            raise ValueError("The Leaf does not match the node searched! Query misdirected! ")
+        else:
+            return self.bucket
 
 
 class LeftLeaf(Leaf):
@@ -255,7 +287,11 @@ class TreeRootPointer(InternalNode):
         The method get_nearest_peers called on a root pointer will simply call the method of the root.
         """
         return self.right.get_nearest_peers(distance, nb_of_peers)
-
+    def get_node_bucket(self,node_key: int):
+        """
+        The method get_nearest_peers called on a root pointer will simply call the method of the root.
+        """
+        return self.right.get_node_bucket(node_key)
 
 class RoutingTable:
     """
@@ -302,3 +338,12 @@ class RoutingTable:
         If there is less than n peers in the routing table, all peers will be returned.
         """
         return self.root_pointer.get_nearest_peers(key_distance(self.host_key, key), nb_of_peers)
+
+    def get_host_bucket(self):
+        """
+        The method get_host_bucket returns the bucketof the host node/leaf with the host key as its routing key.
+
+        """
+        return self.root_pointer.get_node_bucket(self.host_key)
+
+    def g
