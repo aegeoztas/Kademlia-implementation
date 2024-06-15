@@ -28,7 +28,7 @@ def node_tuple_constructor_test():
     # test with random values
     a = random.randint(-5, 10000)
     b = random.randint(0, 20000)
-    c = random.randint(0, 100000)
+    c = random.randint(0, 15)
     result = NodeTuple(str(a), b, c)
     assert (result.ip_address == str(a) and result.node_id == c and result.port == b)
 
@@ -38,7 +38,7 @@ def node_tuple_constructor_test():
     result = NodeTuple("", port, node_id)
     assert (result.node_id == 0 and result.port == 0)
     port = 65535
-    node_id = 2 ** 160 - 1
+    node_id = 2 ** 4 - 1
     result = NodeTuple("", port, node_id)
     assert (result.node_id == node_id and result.port == port)
 
