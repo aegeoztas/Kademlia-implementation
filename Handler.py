@@ -1,10 +1,13 @@
+import asyncio
 import concurrent
 from LocalNode import LocalNode
 from kademlia import NodeTuple
 from network.messages import *
 from util import *
 from asyncio.streams import StreamReader, StreamWriter
-
+from Connection import Connection
+from kademlia.distance import key_distance
+import heapq
 # Fields sizes in number of bytes
 SIZE_FIELD_SIZE = 2
 MESSAGE_TYPE_FIELD_SIZE = 2
@@ -16,6 +19,8 @@ NB_OF_CLOSEST_PEERS = 4
 
 # Concurrency parameter
 ALPHA = 3
+
+TIMEOUT = 3
 
 
 class Handler:
@@ -70,10 +75,10 @@ class Handler:
                     +-----------------+----------------+---------------+---------------+
                     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
                     +-----------------+----------------+---------------+---------------+
-                    |  key            |  0             |  255          |  256          |
+                    |  key            |  0             |  31           |  32           |
                     +-----------------+----------------+---------------+---------------+
                     """
-                    key = int.from_bytes(struct.unpack(f"", body[0: KEY_SIZE - 1]))
+                    key = int.from_bytes(body[0: KEY_SIZE - 1])
                     return_status = await self.handle_get_request(reader, writer, key)
 
                 case DHT_PUT.value:
@@ -88,9 +93,9 @@ class Handler:
                     +-----------------+----------------+---------------+---------------+
                     |  reserved       |  3             |  3            |  1            |
                     +-----------------+----------------+---------------+---------------+
-                    |  key            |  4             |  259          |  256          |
+                    |  key            |  4             |  35           |  32           |
                     +-----------------+----------------+---------------+---------------+
-                    |  value          |  260           |  end          |  variable     |
+                    |  value          |  36            |  end          |  variable     |
                     +-----------------+----------------+---------------+---------------+
                     """
                     ttl: int = int.from_bytes(struct.pack(">H", body[0:2]))
@@ -116,11 +121,10 @@ class Handler:
                     +-----------------+----------------+---------------+---------------+
                     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
                     +-----------------+----------------+---------------+---------------+
-                    |  key            |  0             |  255          |  256          |
+                    |  key            |  0             |  31           |  32           |
                     +-----------------+----------------+---------------+---------------+
                     """
-                    key = int.from_bytes(struct.unpack(f">{KEY_SIZE}s", body[0: KEY_SIZE - 1]),
-                                         byteorder="big")
+                    key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
                     return_status = await self.handle_find_nodes_request(reader, writer, key)
 
                 case DHT_STORE.value:
@@ -131,9 +135,9 @@ class Handler:
                     +-----------------+----------------+---------------+---------------+
                     |  ttl            |  0             |  0            |  1            |
                     +-----------------+----------------+---------------+---------------+
-                    |  key            |  1             |  256          |  256          |
+                    |  key            |  1             |  32           |  32           |
                     +-----------------+----------------+---------------+---------------+
-                    |  value          |  257           |  end          |  variable     |
+                    |  value          |  33            |  end          |  variable     |
                     +-----------------+----------------+---------------+---------------+
                     """
                     ttl = body[0]
@@ -186,7 +190,7 @@ class Handler:
             +-----------------+----------------+---------------+---------------+
             |  DHT_FAILURE    |  2             |  3            |  2            |
             +-----------------+----------------+---------------+---------------+
-            |  key            |  4             |  259          |  256          |
+            |  key            |  4             |  35           |  32           |
             +-----------------+----------------+---------------+---------------+
             """
             message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
@@ -216,9 +220,9 @@ class Handler:
             +-----------------+----------------+---------------+---------------+
             |  DHT_SUCCESS    |  2             |  3            |  2            |
             +-----------------+----------------+---------------+---------------+
-            |  key            |  4             |  259          |  256          |
+            |  key            |  4             |  35           |  32           |
             +-----------------+----------------+---------------+---------------+
-            |  value          |  260           |  end          |  variable     |
+            |  value          |  36            |  end          |  variable     |
             +-----------------+----------------+---------------+---------------+
             """
 
@@ -348,60 +352,40 @@ class Handler:
 
     async def find_closest_nodes_in_network(self, key: int):
 
-        # Definition of query message
-        message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
-        query = struct.pack(">HH", message_size, DHT_FIND_NODE)
-        query += struct.pack(">", key)
+        class ComparableNodeTuple:
+            def __init__(self, nodeTuple: NodeTuple, reference_key: int):
+                self.nodeTuple : NodeTuple = nodeTuple
+                self.reference_key : int = reference_key
+            def __lt__(self, other):
+                # The minimum of the heap will be the node with the greatest distance
+                return key_distance(self.nodeTuple.node_id, self.reference_key) > key_distance(other.nodeTuple.node_id, self.reference_key)
 
         nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        closest_nodes : list[ComparableNodeTuple] = [ComparableNodeTuple(node, key) for node in nodes_to_query]
+        heapq.heapify(closest_nodes)
+
         contacted_nodes: set[NodeTuple] = set()
-        closest_nodes: list[NodeTuple] = list(nodes_to_query)
 
-        current_batch: list[NodeTuple] = list()
-        counter = 0
-        while counter < ALPHA and len(nodes_to_query) > 0:
-            current_batch[counter] = nodes_to_query.pop(0)
-            counter += 1
+        tasks = [self.send_find_closest_nodes_message(node, key) for node in nodes_to_query]
 
-        # Function to handle responses
-        def handle_response(future):
-            response = future.result()
-            print(response)
+        while tasks:
+            done_tasks, pending_tasks = asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
-        # Create a ThreadPoolExecutor to send messages in parallel
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submit tasks to the executor
-            futures = [executor.submit(send_message, msg) for msg in messages]
-
-            # Attach a callback to each future to handle the response
-            for future in futures:
-                future.add_done_callback(handle_response)
-
-        # Note: The ThreadPoolExecutor context will wait for all futures to complete before exiting.
-
-        # for every nodes:
-        # send
-        done = False
-        # done = list to query is empty
-        # add to list to query only when nodes getted are closer that to node quried
-        while not done:
-            pass
-        for node in nodes_to_query:
-            # query node
-            # make connection
-            # do it parallel and asynchronously
+            for completed_task in done_tasks:
+                closest_nodes_received = await completed_task
+                if closest_nodes_received is not None:
+                    for node in closest_nodes_received:
+                        if node not in contacted_nodes:
+                            closest_node_with_greatest_distance = heapq.heappushpop(closest_nodes)
 
 
-            # list = result
-            # TODO add filter to then sending message as well ?
-            # filter_result : keep only nodes that are closer than the node itself
-            pass
 
-    async def send_find_closest_nodes_message(self, recipient: NodeTuple):
+    async def send_find_closest_nodes_message(self, recipient: NodeTuple, key: int)-> list[NodeTuple]:
         """
-
-        :param recipient:
-        :return:
+        This method is responsible for sending a find node message.
+        :param key: The key used to find the closest nodes.
+        :param recipient: A node tuple that represents the peer to which the message will be sent.
+        :return: True if the operation was successful.
         """
         # Definition of FIND_NODES query
         """
@@ -416,3 +400,71 @@ class Handler:
         |  key            |  4             |  259          |  256          |
         +-----------------+----------------+---------------+---------------+
         """
+        message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
+        query = struct.pack(">HH", message_size, DHT_FIND_NODE)
+        query += key.to_bytes(KEY_SIZE, byteorder="big")
+
+        # Make the connection to the remote peer
+        ip: str = recipient.ip_address
+        port: int = recipient.port
+        connection: Connection = Connection(ip, port, TIMEOUT)
+        if await connection.connect() and await connection.send_message(query):
+            message_type_response, body_response = await connection.receive_message()
+        else:
+            await connection.close()
+            return False
+        # Verify that the response has the correct format.
+        if message_type_response is None or body_response is None or message_type_response != DHT_FIND_NODE_RESP:
+            print("Failed to get DHT_FIND_NODE_RESP")
+            await connection.close()
+            return False
+        else:
+            # We first close the socket
+            await connection.close()
+            """
+            Structure of DHT_FIND_NODE_RESP body message
+            +-----------------+----------------+---------------+---------------+
+            |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+            +-----------------+----------------+---------------+---------------+
+            |  nb_of_nodes    |  0             |  1            |  2            |
+            +-----------------+----------------+---------------+---------------+
+            |  key_node_1     |  2             |  33           |  32           |
+            +-----------------+----------------+---------------+---------------+
+            |  ip_node_1      |  34            |  37           |  4            |
+            +-----------------+----------------+---------------+---------------+
+            |  port_node_1    |  38            |  40           |  2            |
+            +-----------------+----------------+---------------+---------------+
+            ...
+            |  key_node_n     |  ...           |  ...          |  32           |
+            +-----------------+----------------+---------------+---------------+
+            |  ip_node_n      |  ...           |  ...          |  4            |
+            +-----------------+----------------+---------------+---------------+
+            |  port_node_n    |  ...           |  ...          |  2            |
+            +-----------------+----------------+---------------+---------------+
+            """
+            # Extracting the fields of the message
+            try:
+                list_of_returned_nodes : list[NodeTuple] = list()
+                nb_of_nodes: int = struct.unpack(">H", body_response[0:3])
+                read_head = 3
+                for i in range(nb_of_nodes):
+                    key_node : int = int.from_bytes(body_response[read_head:read_head+KEY_SIZE-1], byteorder="big")
+                    read_head += KEY_SIZE
+                    ip_node : str = socket.inet_ntoa(body_response[read_head:read_head + IP_FIELD_SIZE-1])
+                    read_head += IP_FIELD_SIZE
+                    port_node : int = struct.unpack(">H", body_response[read_head:read_head+PORT_FIELD_SIZE-1])
+                    read_head += PORT_FIELD_SIZE
+                    received_node = NodeTuple(ip_node, port_node, key_node)
+                    list_of_returned_nodes[i] = received_node
+
+                return list_of_returned_nodes
+
+            except Exception as e:
+                print("Body of the response has the wrong format")
+                return None
+
+
+
+
+
+
