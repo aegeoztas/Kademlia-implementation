@@ -346,4 +346,3 @@ class RoutingTable:
         """
         return self.root_pointer.get_node_bucket(self.host_key)
 
-    def g

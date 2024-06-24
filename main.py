@@ -85,7 +85,6 @@ def main():
     if args.port is not None:
         port = args.port
 
-
     # our node needs to have a k bucket
     # in dht put they have a 16 bit place
     # we are going to use first 8 as a dht id, should be enough

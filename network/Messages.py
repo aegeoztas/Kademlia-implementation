@@ -2,9 +2,37 @@ from dotenv import  load_dotenv
 from Network import Connection
 import os
 """
-the kademlia librarz to implement the functions of kademlia protocol.
+the kademlia library to implement the functions of kademlia protocol.
 uses communication.py to communicate with others. 
+
+from the lecture material Kademlia has 4 protocol stuff we need to implement these on to the 
+PUT/GET/SUCCESS/FAILURE messages. 
+
+The PING RPC probes a node to see if it is online. //  put with 0 ttl? 
+                                                        -> set ttl 0 
+                                                        -> set reserved to a predetermined PING value
+                                                        -> set key to node id   
+                                                        -> set data empty  
+                                                        -> gotta find the node with the ip 
+The STORE RPC instructs a node to store a [key, value] 
+    pair for later retrieval. // THIS IS PUT()  
+The FIND_NODE RPC takes a 160-bit key as an argument. 
+    The recipient of the FIND_NODE RPC returns an  // put
+                                                    -> set reserved to a predetermined FIND_NODE value
+                                                        -> set ttl 0 
+                                                        -> set key to node id   
+                                                        -> set data empty  
+                                                        
+    (IP address, UDP port, Node ID) tuple for each of 
+    the k nodes closest to the target id.
+The FIND_VALUE RPC behaves like FIND_NODE, returning  //This is GET 
+    the k nodes closest to the target identifier with 
+    one exception – if the RPC recipient has received 
+    a STORE for the given key, it returns the stored value.
+
 """
+
+
 
 def PUT(Key, Value, connection=None ):
     """
@@ -24,8 +52,8 @@ storing the given key-value pair. No confirmation is needed for the PUT operatio
 of and storage of empty values is not allowed.
 
 message itself contains
-size(16b\2B) + DHT PUT(16b\2B)
-TLL (16b\2B)+ replication(8b\1B) +reserved(8b\1B)
+sin(8ze(16b\2B) + DHT PUT(16b\2B)
+TLL (16b\2B)+ replicatiob\1B) +reserved(8b\1B)
 key (256b\32B)
 value (256b\32B)
     """
@@ -124,3 +152,11 @@ def FAILURE(Key, Value, connection=None ):
         connection.connect()
         connection.send_message(message_type, data)
         connection.close()
+
+def PING():
+
+    pass
+
+def FIND_NODE():
+
+    pass
