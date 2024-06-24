@@ -1,4 +1,4 @@
-# Keys and node IDs have a length of 160 bit
+# Keys and node IDs have a length of 256 bit
 KEY_LENGTH = 4
 
 

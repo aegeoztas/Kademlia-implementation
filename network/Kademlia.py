@@ -2,7 +2,7 @@ from dotenv import  load_dotenv
 from Network import Connection
 import os
 """
-the kademlia librarz to implement the functions of kademlia protocol.
+the kademlia library to implement the functions of kademlia protocol.
 uses communication.py to communicate with others. 
 """
 
