@@ -2,7 +2,7 @@ import asyncio
 import concurrent
 from LocalNode import LocalNode
 from kademlia import NodeTuple
-from network.Messages import *
+#from network.Messages import *
 from util import *
 from asyncio.streams import StreamReader, StreamWriter
 from Connection import Connection
