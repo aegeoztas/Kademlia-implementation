@@ -4,8 +4,7 @@ import asyncio
 from socket import AF_INET
 from kademlia.routing_table import RoutingTable
 from kademlia.k_bucket import NodeTuple
-from network.Messages import GET, PUT,SUCCESS,FAILURE
-from network.Network import Connection
+
 
 
 DHT_ADDR = "127.0.0.1"
@@ -17,7 +16,7 @@ DHT_GET = 651
 DHT_SUCCESS = 652
 DHT_FAILURE = 653
 
-async def handle_connection(reader, writer,kbucket,rtable):
+"""async def handle_connection(reader, writer,kbucket,rtable):
     connection = Connection()
     connection.connect(reader, writer)
     try:
@@ -54,15 +53,18 @@ async def handle_connection(reader, writer,kbucket,rtable):
 
 def handle_storage():
     """
-    this function implements a kademlia tree like structure.
+#this function implements a kademlia tree like structure.
 
-    creates internal and left right nodes.
-    """
+#creates internal and left right nodes.
+"""
 
     # routing table requires an internal node
-
+"""
 def main():
-
+    # The rest of the code is obsolete right now so I commented it out.
+    # Once I know how to proceed with the rest of the handlers
+    # I will delete all these commented out codes here as well.
+    """
     # add cmd config
     # taken from the mockup for ease of use
 
@@ -113,7 +115,7 @@ def main():
     except KeyboardInterrupt as e:
         print("[i] Received SIGINT, shutting down...")
         loop.stop()
-
+"""
 
 if __name__ == '__main__':
     main()
