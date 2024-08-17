@@ -21,11 +21,14 @@ NB_OF_CLOSEST_PEERS = 4
 ALPHA = 3
 
 TIMEOUT = 3
+# TODO finish dht get
+# TODO finish dht put
 
 
-class Handler:
+class DHTHandler:
     """
-    The role of this class is to handle all incoming messages reaching the local node
+    The role of this class is to handle incoming messages that are
+    reaching the local node and using DHT API
     """
 
     def __init__(self, local_node: LocalNode):
@@ -104,48 +107,6 @@ class Handler:
                     value: bytes = body[260:]
                     return_status = await self.handle_put_request(reader, writer, ttl, replication, key, value)
 
-                # Kademlia specific messages
-                case DHT_PING.value:
-                    """
-                    Body of DHT_PUT
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                                                    empty
-                    """
-                    return_status = await self.handle_ping(reader, writer)
-
-                case DHT_FIND_NODE.value:
-                    """
-                    Body of DHT_FIND_NODE 
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                    |  key            |  0             |  31           |  32           |
-                    +-----------------+----------------+---------------+---------------+
-                    """
-                    key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
-                    return_status = await self.handle_find_nodes_request(reader, writer, key)
-
-                case DHT_STORE.value:
-                    """
-                    Body of DHT_PUT
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                    |  ttl            |  0             |  0            |  1            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  key            |  1             |  32           |  32           |
-                    +-----------------+----------------+---------------+---------------+
-                    |  value          |  33            |  end          |  variable     |
-                    +-----------------+----------------+---------------+---------------+
-                    """
-                    ttl = body[0]
-                    key = int.from_bytes(struct.unpack(f">{KEY_SIZE}s", body[1: 1 + KEY_SIZE - 1]),
-                                         byteorder="big")
-                    value_field_size = len(body) - KEY_SIZE - 1
-                    value = struct.unpack(f">{value_field_size}s", body[KEY_SIZE + 1:])
-                    return_status = await self.handle_store_request(ttl, key, value)
 
                 case _:
                     await bad_packet(reader, writer,
@@ -258,6 +219,105 @@ class Handler:
         """
         raise NotImplementedError
 
+
+
+class KademliaHandler:
+    """
+    This class is for handlig the API calls for the
+    Kademlia three
+    """
+
+    def __init__(self, local_node: LocalNode):
+        """
+        Constructor
+        :param local_node: A LocalNode object used to get access to the routing table and the local storage
+        """
+        self.local_node: LocalNode = local_node
+
+    async def handle_message(self, buf: bytes, reader: StreamReader, writer: StreamWriter):
+        """
+        This function handles incoming requests according to their content.
+        :param buf: A buffer of bytes containing the content of the message.
+        :param reader: The StreamReader of the socker.
+        :param writer: The StreamWriter of the socket.
+        :return: True if the operation was successful.
+        """
+
+        """
+        Message Format
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  Size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Message type   |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Body           |  3             | end           | Size -4       |
+        +-----------------+----------------+---------------+---------------+
+        """
+        # Extracting header and body of the message
+        header = buf[:4]
+        body = buf[4:]
+
+        # Extracting the message type
+        message_type = struct.unpack(">HH", header[2:4])
+
+        return_status = False
+
+        # A specific handler is called depending on the message type.
+        try:
+            match message_type:
+                # Kademlia specific messages
+                case DHT_PING.value:
+                    """
+                    Body of DHT_PUT
+                    +-----------------+----------------+---------------+---------------+
+                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+                    +-----------------+----------------+---------------+---------------+
+                                                    empty
+                    """
+                    return_status = await self.handle_ping(reader, writer)
+
+                case DHT_FIND_NODE.value:
+                    """
+                    Body of DHT_FIND_NODE 
+                    +-----------------+----------------+---------------+---------------+
+                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+                    +-----------------+----------------+---------------+---------------+
+                    |  key            |  0             |  31           |  32           |
+                    +-----------------+----------------+---------------+---------------+
+                    """
+                    key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
+                    return_status = await self.handle_find_nodes_request(reader, writer, key)
+
+                case DHT_STORE.value:
+                    """
+                    Body of DHT_PUT
+                    +-----------------+----------------+---------------+---------------+
+                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+                    +-----------------+----------------+---------------+---------------+
+                    |  ttl            |  0             |  0            |  1            |
+                    +-----------------+----------------+---------------+---------------+
+                    |  key            |  1             |  32           |  32           |
+                    +-----------------+----------------+---------------+---------------+
+                    |  value          |  33            |  end          |  variable     |
+                    +-----------------+----------------+---------------+---------------+
+                    """
+                    ttl = body[0]
+                    key = int.from_bytes(struct.unpack(f">{KEY_SIZE}s", body[1: 1 + KEY_SIZE - 1]),
+                                         byteorder="big")
+                    value_field_size = len(body) - KEY_SIZE - 1
+                    value = struct.unpack(f">{value_field_size}s", body[KEY_SIZE + 1:])
+                    return_status = await self.handle_store_request(ttl, key, value)
+
+                case _:
+                    await bad_packet(reader, writer,
+                                     f"Unknown message type {message_type} received",
+                                     header)
+
+        except Exception as e:
+            await bad_packet(reader, writer, f"Wrongly formatted message", buf)
+        return return_status
     async def handle_ping(self, reader, writer):
         """
         This function handles a ping message. It will just send a pong response.
@@ -343,12 +403,6 @@ class Handler:
         print(f"[+] {remote_address}:{remote_port} <<< DHT_SUCCESS")
         return True
 
-    async def handle_put_request(self):
-        return
-
-    #---------------------------------------------------------------------------------------------------------
-    # Async functions that are not handler of received messages:
-    #---------------------------------------------------------------------------------------------------------
 
     async def find_closest_nodes_in_network(self, key: int):
 
@@ -462,8 +516,6 @@ class Handler:
             except Exception as e:
                 print("Body of the response has the wrong format")
                 return None
-
-
 
 
 
