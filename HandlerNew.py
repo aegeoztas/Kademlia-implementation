@@ -2,25 +2,29 @@ import asyncio
 import concurrent
 from LocalNode import LocalNode
 from kademlia import NodeTuple
-from network.Messages import *
+import os
+from dotenv import load_dotenv
 from util import *
 from asyncio.streams import StreamReader, StreamWriter
 from Connection import Connection
 from kademlia.distance import key_distance
+from MessageTypes import Message
 import heapq
-# Fields sizes in number of bytes
-SIZE_FIELD_SIZE = 2
-MESSAGE_TYPE_FIELD_SIZE = 2
-KEY_SIZE = 256 / 8
-IP_FIELD_SIZE = 32 / 8
-PORT_FIELD_SIZE = 16 / 8
 
-NB_OF_CLOSEST_PEERS = 4
+load_dotenv()
+# Fields sizes in number of bytes
+SIZE_FIELD_SIZE = os.getenv("SIZE_FIELD_SIZE")
+MESSAGE_TYPE_FIELD_SIZE = os.getenv("MESSAGE_TYPE_FIELD_SIZE")
+KEY_SIZE = os.getenv("KEY_SIZE")
+IP_FIELD_SIZE = os.getenv("IP_FIELD_SIZE")
+PORT_FIELD_SIZE = os.getenv("PORT_FIELD_SIZE")
+NB_OF_CLOSEST_PEERS = os.getenv("NB_OF_CLOSEST_PEERS")
 
 # Concurrency parameter
-ALPHA = 3
+ALPHA = os.getenv("ALPHA")
+TIMEOUT = os.getenv("TIMEOUT")
 
-TIMEOUT = 3
+
 # TODO finish dht get
 # TODO finish dht put
 
@@ -33,10 +37,13 @@ class DHTHandler:
 
     def __init__(self, local_node: LocalNode):
         """
+
         Constructor
         :param local_node: A LocalNode object used to get access to the routing table and the local storage
+
         """
         self.local_node: LocalNode = local_node
+        # maybe needs a local cademlia handler
 
     async def handle_message(self, buf: bytes, reader: StreamReader, writer: StreamWriter):
         """
@@ -72,7 +79,7 @@ class DHTHandler:
         try:
             match message_type:
                 # DHT API Messages
-                case DHT_GET.value:
+                case Message.DHT_GET:
                     """
                     Body of DHT_GET
                     +-----------------+----------------+---------------+---------------+
@@ -84,7 +91,7 @@ class DHTHandler:
                     key = int.from_bytes(body[0: KEY_SIZE - 1])
                     return_status = await self.handle_get_request(reader, writer, key)
 
-                case DHT_PUT.value:
+                case Message.DHT_PUT:
                     """
                     Body of DHT_PUT
                     +-----------------+----------------+---------------+---------------+
@@ -120,7 +127,8 @@ class DHTHandler:
     async def handle_get_request(self, reader, writer, key: int):
         """
         This method handles a get message. If the local node contains the data,
-        it will simply return it. If not, it will try to get from the network.
+        it will simply return it. If not, it will try to get from the kademlia network.
+        if it cant find it returns DHT_Success or DHT_failiure
         :param reader: The reader of the socket.
         :param writer: The writer of the socket.
         :param key: The key associated to the data.
@@ -135,6 +143,11 @@ class DHTHandler:
         # If the value is not in the local storage, we have to get it from the Kademlia network from the other peers.
         if value is None:
             # TODO retrieve value in the network
+            # needs to send a kademlia get message.
+            # better to start working there
+
+
+
             value = None
             pass
 
@@ -155,7 +168,7 @@ class DHTHandler:
             +-----------------+----------------+---------------+---------------+
             """
             message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
-            response = struct.pack(">HH", message_size, DHT_FAILURE)
+            response = struct.pack(">HH", message_size, Message.DHT_FAILURE)
             response += key.to_bytes(KEY_SIZE, byteorder="big")
 
             try:
@@ -189,7 +202,7 @@ class DHTHandler:
 
             message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE + len(value)
 
-            response = struct.pack(">HH", message_size, DHT_SUCCESS)
+            response = struct.pack(">HH", message_size, Message.DHT_SUCCESS)
             response += key.to_bytes(KEY_SIZE, byteorder="big")
             response += value
 
@@ -267,8 +280,15 @@ class KademliaHandler:
         # A specific handler is called depending on the message type.
         try:
             match message_type:
+                case Message.KADEMLIA_GET:
+                    # TODO add message KADEMLIA_GET to kademlia handler
+                    pass
+                case Message.STORE:
+                    # TODO add message store to kademlia handler
+                    pass
                 # Kademlia specific messages
-                case DHT_PING.value:
+                case Message.PING:
+
                     """
                     Body of DHT_PUT
                     +-----------------+----------------+---------------+---------------+
@@ -278,9 +298,9 @@ class KademliaHandler:
                     """
                     return_status = await self.handle_ping(reader, writer)
 
-                case DHT_FIND_NODE.value:
+                case Message.FIND_NODE:
                     """
-                    Body of DHT_FIND_NODE 
+                    Body of FIND_NODE 
                     +-----------------+----------------+---------------+---------------+
                     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
                     +-----------------+----------------+---------------+---------------+
@@ -290,7 +310,7 @@ class KademliaHandler:
                     key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
                     return_status = await self.handle_find_nodes_request(reader, writer, key)
 
-                case DHT_STORE.value:
+                case Message.DHT_STORE:
                     """
                     Body of DHT_PUT
                     +-----------------+----------------+---------------+---------------+
@@ -329,7 +349,8 @@ class KademliaHandler:
         remote_address, remote_port = writer.get_extra_info("socket").getpeername()
         # Define the ping response message
         message_size = int(SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE)
-        response = struct.pack(">HH", message_size, DHT_PING_RESP)
+        response = struct.pack(">HH", message_size, 0)
+        # here I sent a 0 type message for the ping response.
         # Send the response
         try:
             writer.write(response)
@@ -380,9 +401,29 @@ class KademliaHandler:
                            + MESSAGE_TYPE_FIELD_SIZE
                            + NUMBER_OF_NODES_FIELD_SIZE
                            + (KEY_SIZE + IP_FIELD_SIZE + PORT_FIELD_SIZE) * nb_of_nodes_found)
-        response = struct.pack(">HHH", message_size, DHT_FIND_NODE_RESP, nb_of_nodes_found)
+        response = struct.pack(">HHH", message_size, Message.FIND_NODE_RESP, nb_of_nodes_found)
 
         # Add each node information to the message
+        """
+        
+               Body of FIND_NODE_RESPONSE
+               +-----------------+----------------+---------------+---------------+
+               |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+               +-----------------+----------------+---------------+---------------+
+               |  node_id        |  0             |  31           |  32           |
+               +-----------------+----------------+---------------+---------------+
+               |  IP_field1      |  32            |  32           |  1           |
+               +-----------------+----------------+---------------+---------------+
+               |  IP_field2      |  33            |  33           |  1           |
+               +-----------------+----------------+---------------+---------------+
+               |  IP_field3      |  34            |  34           |  1           |
+               +-----------------+----------------+---------------+---------------+
+               |  IP_field4      |  35            |  35           |  1           |
+               +-----------------+----------------+---------------+---------------+
+               |  Node Port      |  36            |  37           |  2           |
+               +-----------------+----------------+---------------+---------------+
+        
+        """
         for node in closest_nodes:
             # Add node ID field
             response += struct.pack("B" * KEY_SIZE, node.node_id)
@@ -404,9 +445,29 @@ class KademliaHandler:
         return True
 
 
-    async def find_closest_nodes_in_network(self, key: int):
 
+    async def Kademlia_get(self,reader,writer,value: bytes):
+        """
+
+        """
+
+        pass
+    async def find_closest_nodes_in_network(self, key: int):
+        """
+               kademlia algorithms find node message.
+               takes a node id and recipient of the message instead of a
+               single Node tuple returns the k-nodes it knows that are closest to the given node id.
+               """
+        """ 
+               Body of FIND_NODE 
+               +-----------------+----------------+---------------+---------------+
+               |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+               +-----------------+----------------+---------------+---------------+
+               |  key            |  0             |  31           |  32           |
+               +-----------------+----------------+---------------+---------------+
+        """
         class ComparableNodeTuple:
+            # this is a class to handle node comparisons based on their distance to the key
             def __init__(self, nodeTuple: NodeTuple, reference_key: int):
                 self.nodeTuple : NodeTuple = nodeTuple
                 self.reference_key : int = reference_key
@@ -419,23 +480,34 @@ class KademliaHandler:
         heapq.heapify(closest_nodes)
 
         contacted_nodes: set[NodeTuple] = set()
-
+        # send our closest nodes find node message.
         tasks = [self.send_find_closest_nodes_message(node, key) for node in nodes_to_query]
 
         while tasks:
             done_tasks, pending_tasks = asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
             for completed_task in done_tasks:
-                closest_nodes_received = await completed_task
-                if closest_nodes_received is not None:
-                    for node in closest_nodes_received:
+                k_closest_nodes_received = await completed_task
+                if k_closest_nodes_received is not None:
+                    for node in k_closest_nodes_received:
+                        comparable_node = ComparableNodeTuple(node, key)
                         if node not in contacted_nodes:
-                            closest_node_with_greatest_distance = heapq.heappushpop(closest_nodes)
+                            contacted_nodes.add(node)  # add the node to contacted nodes.
+                            # If the new node is closer than the furthest in the heap, add it
+                            if comparable_node < closest_nodes[0]:
+                                heapq.heappushpop(closest_nodes, comparable_node)
+                                tasks.append(asyncio.create_task(self.send_find_closest_nodes_message(node, key)))
 
+        # cleanup any and all tasks
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        # return k closest nodes
+        return [node.nodeTuple for node in heapq.nsmallest(NB_OF_CLOSEST_PEERS, closest_nodes)]
 
-
-    async def send_find_closest_nodes_message(self, recipient: NodeTuple, key: int)-> list[NodeTuple]:
+    async def send_find_closest_nodes_message(self, recipient: NodeTuple, key: int) -> list[NodeTuple]:
         """
+        FIND_NODES message of the Kademlia.
         This method is responsible for sending a find node message.
         :param key: The key used to find the closest nodes.
         :param recipient: A node tuple that represents the peer to which the message will be sent.
@@ -455,7 +527,7 @@ class KademliaHandler:
         +-----------------+----------------+---------------+---------------+
         """
         message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
-        query = struct.pack(">HH", message_size, DHT_FIND_NODE)
+        query = struct.pack(">HH", message_size, Message.FIND_NODE)
         query += key.to_bytes(KEY_SIZE, byteorder="big")
 
         # Make the connection to the remote peer
@@ -468,7 +540,7 @@ class KademliaHandler:
             await connection.close()
             return False
         # Verify that the response has the correct format.
-        if message_type_response is None or body_response is None or message_type_response != DHT_FIND_NODE_RESP:
+        if message_type_response is None or body_response is None or message_type_response != Message.FIND_NODE_RESP:
             print("Failed to get DHT_FIND_NODE_RESP")
             await connection.close()
             return False
@@ -502,11 +574,11 @@ class KademliaHandler:
                 nb_of_nodes: int = struct.unpack(">H", body_response[0:3])
                 read_head = 3
                 for i in range(nb_of_nodes):
-                    key_node : int = int.from_bytes(body_response[read_head:read_head+KEY_SIZE-1], byteorder="big")
+                    key_node: int = int.from_bytes(body_response[read_head:read_head+KEY_SIZE-1], byteorder="big")
                     read_head += KEY_SIZE
-                    ip_node : str = socket.inet_ntoa(body_response[read_head:read_head + IP_FIELD_SIZE-1])
+                    ip_node: str = socket.inet_ntoa(body_response[read_head:read_head + IP_FIELD_SIZE-1])
                     read_head += IP_FIELD_SIZE
-                    port_node : int = struct.unpack(">H", body_response[read_head:read_head+PORT_FIELD_SIZE-1])
+                    port_node: int = struct.unpack(">H", body_response[read_head:read_head+PORT_FIELD_SIZE-1])
                     read_head += PORT_FIELD_SIZE
                     received_node = NodeTuple(ip_node, port_node, key_node)
                     list_of_returned_nodes[i] = received_node
