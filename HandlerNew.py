@@ -3,6 +3,7 @@ import concurrent
 from LocalNode import LocalNode
 from kademlia import NodeTuple
 import os
+import sys
 from dotenv import load_dotenv
 from util import *
 from asyncio.streams import StreamReader, StreamWriter
@@ -27,7 +28,13 @@ TIMEOUT = os.getenv("TIMEOUT")
 
 # TODO finish dht get
 # TODO finish dht put
+# TODO implment echo
+"""
+"In All RPCs, the recipent must echo a 160 bit random rpc ID which provides some resistance to address forgery. 
+PINGS can also be piggy backed on RPC replies for RPC recipient to obtain additional assurance of the sender's network address. 
 
+
+"""
 
 class DHTHandler:
     """
@@ -377,6 +384,37 @@ class KademliaHandler:
         """
         self.local_node.local_hash_table.put(key, value, ttl)
         return True
+    async def handle_find_value_request(self, reader, writer, key: int):
+        """
+        This function finds if it has the key asked.
+        if not returns to the sender the k closest nodes to the key,that is located in its routing table.
+        :param key:The key for which we want to find.
+        :param reader: The reader of the socket
+        :param writer: The writer of the socket
+        :return: True if the operation was successful.
+        """
+        value = self.local_node.local_hash_table.get(key)
+        if value != None:
+            # if value is existing send it back
+            message_size = int(SIZE_FIELD_SIZE
+                           + MESSAGE_TYPE_FIELD_SIZE
+                           + sys.getsizeof(value) )
+            header = struct.pack(">HH", message_size, Message.FIND_VALUE_SUCCESS)
+            if type(value) == bytes:
+                body = value
+            else:
+                body = value.to_bytes(KEY_SIZE, byteorder="big")
+            response = header + body
+            try:
+                writer.write(response)
+                await writer.drain()
+            except Exception as e:
+                print(f"[-] Failed to send FIND_VALUE_SUCCESS {e}")
+                await bad_packet(reader, writer, data=response)
+                return False
+        else:
+            # else this acts as handle_find_nodes_request
+            return self.handle_find_nodes_request(reader,writer,key)
 
     async def handle_find_nodes_request(self, reader, writer, key: int):
         """
@@ -444,17 +482,10 @@ class KademliaHandler:
         print(f"[+] {remote_address}:{remote_port} <<< DHT_SUCCESS")
         return True
 
-
-
-    async def Kademlia_get(self,reader,writer,value: bytes):
-        """
-
-        """
-
-        pass
     async def find_closest_nodes_in_network(self, key: int):
         """
-               kademlia algorithms find node message.
+               kademlia algorithms find node process.
+               Uses send_find_closest_nodes_message to ittarate through the network.
                takes a node id and recipient of the message instead of a
                single Node tuple returns the k-nodes it knows that are closest to the given node id.
                """
@@ -504,7 +535,92 @@ class KademliaHandler:
         await asyncio.gather(*tasks, return_exceptions=True)
         # return k closest nodes
         return [node.nodeTuple for node in heapq.nsmallest(NB_OF_CLOSEST_PEERS, closest_nodes)]
+    async def send_find_value_message(self, recipient: NodeTuple,value: bytes):
+        """
+        sends FIND_VALUE message of the Kademlia.
+        This method is responsible for sending a find value message.
+        SIMILAR TO DHT_GET message.
+        :param key: The key used to find the closest nodes.
+        :param recipient: A node tuple that represents the peer to which the message will be sent.
+        :return: True if the operation was successful.
+        """
+        # Definition of FIND_NODES query
+        # TODO make the changes to this so that it is different from find nodes
+        """
+        Structure of FIND_NODES query
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  FIND_VALUE     |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  key            |  4             |  259          |  256          |
+        +-----------------+----------------+---------------+---------------+
+        """
 
+        message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
+        header = struct.pack(">HH", message_size, Message.FIND_NODE)
+        body = value
+        query = header+body
+        # Make the connection to the remote peer
+        ip: str = recipient.ip_address
+        port: int = recipient.port
+        connection: Connection = Connection(ip, port, TIMEOUT)
+        if await connection.connect() and await connection.send_message(query):
+            message_type_response, body_response = await connection.receive_message()
+        else:
+            await connection.close()
+            return False
+        # Verify that the response has the correct format.
+        if message_type_response is None or body_response is None or message_type_response != Message.FIND_NODE_RESP:
+            print("Failed to get DHT_FIND_NODE_RESP")
+            await connection.close()
+            return False
+        else:
+            # We first close the socket
+            await connection.close()
+            """
+            Structure of DHT_FIND_NODE_RESP body message
+            +-----------------+----------------+---------------+---------------+
+            |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+            +-----------------+----------------+---------------+---------------+
+            |  nb_of_nodes    |  0             |  1            |  2            |
+            +-----------------+----------------+---------------+---------------+
+            |  key_node_1     |  2             |  33           |  32           |
+            +-----------------+----------------+---------------+---------------+
+            |  ip_node_1      |  34            |  37           |  4            |
+            +-----------------+----------------+---------------+---------------+
+            |  port_node_1    |  38            |  40           |  2            |
+            +-----------------+----------------+---------------+---------------+
+            ...
+            |  key_node_n     |  ...           |  ...          |  32           |
+            +-----------------+----------------+---------------+---------------+
+            |  ip_node_n      |  ...           |  ...          |  4            |
+            +-----------------+----------------+---------------+---------------+
+            |  port_node_n    |  ...           |  ...          |  2            |
+            +-----------------+----------------+---------------+---------------+
+            """
+            # Extracting the fields of the message
+            try:
+                list_of_returned_nodes: list[NodeTuple] = list()
+                nb_of_nodes: int = struct.unpack(">H", body_response[0:3])
+                read_head = 3
+                for i in range(nb_of_nodes):
+                    key_node: int = int.from_bytes(body_response[read_head:read_head + KEY_SIZE - 1], byteorder="big")
+                    read_head += KEY_SIZE
+                    ip_node: str = socket.inet_ntoa(body_response[read_head:read_head + IP_FIELD_SIZE - 1])
+                    read_head += IP_FIELD_SIZE
+                    port_node: int = struct.unpack(">H", body_response[read_head:read_head + PORT_FIELD_SIZE - 1])
+                    read_head += PORT_FIELD_SIZE
+                    received_node = NodeTuple(ip_node, port_node, key_node)
+                    list_of_returned_nodes[i] = received_node
+
+                return list_of_returned_nodes
+
+            except Exception as e:
+                print("Body of the response has the wrong format")
+                return None
     async def send_find_closest_nodes_message(self, recipient: NodeTuple, key: int) -> list[NodeTuple]:
         """
         FIND_NODES message of the Kademlia.

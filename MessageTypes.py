@@ -13,7 +13,9 @@ class Message(IntEnum):
 
     # KADEMLIA
     PING = os.getenv("PING")
-    KADEMLIA_GET = os.getenv("KADEMLIA_GET")
+    FIND_VALUE = os.getenv("FIND_VALUE")
     STORE = os.getenv("STORE")
     FIND_NODE = os.getenv("FIND_NODE")
     FIND_NODE_RESP = os.getenv("FIND_NODE_RESP")
+    FIND_VALUE_SUCCESS = os.getenv("FIND_VALUE_SUCCESS")
+    FIND_VALUE_FAILURE = os.getenv("FIND_VALUE_FAILURE")
