@@ -28,7 +28,7 @@ MAXREPLICATION = os.getenv("MAX_REPLICATION")
 TLL_SIZE =   os.getenv("TLL_SIZE")
 MAXTTL = os.getenv("MAX_TTL")
 REPLICATION_SIZE = os.getenv("REPLICATION_SIZE")
-# TODO finish dht put
+
 # TODO implment echo
 # TODO (EGE) I feel like we have used the aplha value wrong and made a mistake there go over it later.
 """
@@ -154,35 +154,6 @@ class KademliaHandler:
                     key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
                     return_status = await self.handle_find_nodes_request(reader, writer, key)
 
-                case Message.STORE:
-                    # this is pretty much equal to dht put
-                    """
-                    Body of DHT_PUT
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                    |  size           |  0             |  1            |  2            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  STORE          |  2             |  3            |  2            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  DHT_PUT        |  4             |  5            |  2            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  replication    |  6             |  6            |  1            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  reserved       |  7             |  7            |  1            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  key            |  8             |  39           |  32           |
-                    +-----------------+----------------+---------------+---------------+
-                    |  value          |  40            |  end          |  variable     |
-                    +-----------------+----------------+---------------+---------------+
-                    """
-                    ttl = body[0]
-                    key = int.from_bytes(struct.unpack(f">{KEY_SIZE}s", body[1: 1 + KEY_SIZE - 1]),
-                                         byteorder="big")
-                    value_field_size = len(body) - KEY_SIZE - 1
-                    value = struct.unpack(f">{value_field_size}s", body[KEY_SIZE + 1:])
-                    return_status = await self.handle_store_request(ttl, key, value)
-
                 case _:
                     await bad_packet(reader, writer,
                                      f"Unknown message type {message_type} received",
@@ -272,7 +243,7 @@ class KademliaHandler:
             #here the replication is only a hint and too much of it can be bad.
             # so we set cap on it.
         self.republish_store_request(replication,ttl,key,value)
-
+        return True
     async def handle_find_value_request(self, reader, writer, key: int):
         """
         This function finds if it has the key asked.
@@ -676,7 +647,8 @@ class DHTHandler:
     """
 
     def __init__(self, local_node: LocalNode, kademlia_handler: KademliaHandler):
-        self.local_node: LocalNode = local_node
+        # self.local_node: LocalNode = local_node
+        # it doesn't make sense for dht handler to have it's own local node
         self.k_handler = kademlia_handler
         """
 
@@ -810,5 +782,5 @@ class DHTHandler:
         :param value: The data to be stored
         :return: True if the operation was successful.
         """
-        raise NotImplementedError
-
+        return_value = self.k_handler.handle_store_request(reader=reader, writer =writer, ttl=ttl,replication=replication,key=key,value=value)
+        return return_value
