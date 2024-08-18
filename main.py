@@ -96,8 +96,6 @@ def main():
 
 
 
-
-    # TODO implement storage lock
     loop = asyncio.get_event_loop()
     # create a lambda func that takes reader r, writer w, m(essage)handler
     # returns handle_client(r, w, mhandler)
