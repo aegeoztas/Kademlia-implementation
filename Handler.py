@@ -25,7 +25,9 @@ NB_OF_CLOSEST_PEERS = os.getenv("NB_OF_CLOSEST_PEERS")
 ALPHA = os.getenv("ALPHA")
 TIMEOUT = os.getenv("TIMEOUT")
 MAXREPLICATION = os.getenv("MAX_REPLICATION")
-
+TLL_SIZE =   os.getenv("TLL_SIZE")
+MAXTTL = os.getenv("MAX_TTL")
+REPLICATION_SIZE = os.getenv("REPLICATION_SIZE")
 # TODO finish dht get
 # TODO finish dht put
 # TODO implment echo
@@ -331,11 +333,19 @@ class KademliaHandler:
                     +-----------------+----------------+---------------+---------------+
                     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
                     +-----------------+----------------+---------------+---------------+
-                    |  ttl            |  0             |  0            |  1            |
+                    |  size           |  0             |  1            |  2            |
                     +-----------------+----------------+---------------+---------------+
-                    |  key            |  1             |  32           |  32           |
+                    |  STORE          |  2             |  3            |  2            |
                     +-----------------+----------------+---------------+---------------+
-                    |  value          |  33            |  end          |  variable     |
+                    |  DHT_PUT        |  4             |  5            |  2            |
+                    +-----------------+----------------+---------------+---------------+
+                    |  replication    |  6             |  6            |  1            |
+                    +-----------------+----------------+---------------+---------------+
+                    |  reserved       |  7             |  7            |  1            |
+                    +-----------------+----------------+---------------+---------------+
+                    |  key            |  8             |  39           |  32           |
+                    +-----------------+----------------+---------------+---------------+
+                    |  value          |  40            |  end          |  variable     |
                     +-----------------+----------------+---------------+---------------+
                     """
                     ttl = body[0]
@@ -378,7 +388,36 @@ class KademliaHandler:
         print(f"[+] {remote_address}:{remote_port} <<< PING_RESPONSE")
 
         return True
+    async def republish_store_request(self, replication: int, ttl: int, key: int, value: bytes):
+        """
+        this function gets the leftovers from handle_store_function and
+        tries to replicate the storage evenly as possible.
+        """
 
+        # TODO add key mixing to this function so each repub has a different key for the same value
+        # then on our local bucket send closest places
+        nodes_to_store: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        # both depth wise(how many hops to last) AND width wise (how many paralel hops).
+        # also replication might also be used to tell how many times same key should be used.
+        # like maybe use different keys
+
+        tasks = []
+        if nodes_to_store:
+            # Calculate how much each node should replicate.
+            base_rep = replication // len(nodes_to_store)  # use floor division 8 // 3 = 2
+            extra = replication % len(nodes_to_store)  # 8 % 3 = 2
+            # so for 8 repetition among 3 nodes we would add +1 to first 2 nodes
+
+            # Generate tasks for sending store messages.
+            tasks = []
+            for i, node in enumerate(nodes_to_store):
+                # Distribute the 'extra' replications across the first 'extra' nodes.
+                if i < extra:
+                    rep_to_send = base_rep + 1
+                else:
+                    rep_to_send = base_rep
+
+                tasks.append(self.send_store_message(node, rep_to_send, ttl, key, value))
     async def handle_store_request(self, replication: int, ttl: int, key: int, value: bytes):
         """
         This function handles a store message. If this function is called, this node has been designated to store a value.
@@ -390,24 +429,21 @@ class KademliaHandler:
         :param value: The value to be stored.
         :return: True if the operation was successful.
         """
-        # TODO handle_store_request is incomplete need to add republishing logic.
+        if ttl == 0:
+            # it is forbiden to have 0 ttl so we drop the request
+            return False
+        elif ttl> MAXTTL:
+            ttl = MAXTTL
 
         self.local_node.local_hash_table.put(key, value, ttl)
+
         if replication == 0:
             return True
         elif replication > MAXREPLICATION:
             replication = MAXREPLICATION
             #here the replication is only a hint and too much of it can be bad.
             # so we set cap on it.
-            # then on our local bucket send closest places
-            nodes_to_store: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
-            # TODO this needs to count each of these closest peers as well so replication is counted
-            # both depth wise(how many hops to last) AND width wise (how many paralel hops).
-            # also replication might also be used to tell how many times same key should be used.
-            # like maybe use different keys
 
-            tasks = [self.send_store_message(node, key) for node in nodes_to_query]
-            #
         else:
             pass
 
@@ -733,8 +769,57 @@ class KademliaHandler:
                 return None
 
     async def send_store_message(self,recipient: NodeTuple, replication: int, ttl: int, key: int, value: bytes):
-        #TODO finish send store message
-        pass
+
+
+        """
+               sends STORE message of the Kademlia.
+               This method is responsible for sending a find value message.
+               SIMILAR TO DHT_PUT message.
+               :param key: The key used to find the closest nodes.
+               :param recipient: A node tuple that represents the peer to which the message will be sent.
+               :return: True if the operation was successful.
+               """
+
+        """
+        Structure of STORE MESSAGE
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  STORE          |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  TTL            |  4             |  5            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  replication    |  6             |  6            |  1            |
+        +-----------------+----------------+---------------+---------------+
+        |  reserved       |  7             |  7            |  1            |
+        +-----------------+----------------+---------------+---------------+
+        |  key            |  8             |  39           |  32           |
+        +-----------------+----------------+---------------+---------------+
+        |  value          |  40            |  end          |  variable     |
+        +-----------------+----------------+---------------+---------------+
+        """
+
+        message_size = (SIZE_FIELD_SIZE
+                        + MESSAGE_TYPE_FIELD_SIZE
+                        + TLL_SIZE
+                        + REPLICATION_SIZE
+                        + 1
+                        + KEY_SIZE)
+        header = struct.pack(">HH", message_size, Message.FIND_NODE)
+        body = key.to_bytes(KEY_SIZE, byteorder="big")
+        body += value
+        query = header + body
+        # Make the connection to the remote peer
+        ip: str = recipient.ip_address
+        port: int = recipient.port
+        connection: Connection = Connection(ip, port, TIMEOUT)
+        await connection.connect()
+        await connection.send_message(query)
+        # there is no need to verify response to a store message
+        await connection.close()
+
 
 
 
