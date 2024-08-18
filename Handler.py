@@ -28,7 +28,6 @@ MAXREPLICATION = os.getenv("MAX_REPLICATION")
 TLL_SIZE =   os.getenv("TLL_SIZE")
 MAXTTL = os.getenv("MAX_TTL")
 REPLICATION_SIZE = os.getenv("REPLICATION_SIZE")
-# TODO finish dht get
 # TODO finish dht put
 # TODO implment echo
 # TODO (EGE) I feel like we have used the aplha value wrong and made a mistake there go over it later.
@@ -95,9 +94,16 @@ class KademliaHandler:
                     +-----------------+----------------+---------------+---------------+
                     |  key            |  0             |  31           |  32           |
                     +-----------------+----------------+---------------+---------------+
+                    While here find value is different than the DHT_GET usinng the .env both types are equal to each other.
+                    It will return either success or failiure responses that are compatible with DHT_GET messages. 
+                    to passed reader / writer with either value or nothing.  
                     """
                     key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
+                    # use kademlia interface to try to find the value there.
                     return_status = await self.handle_find_value_request(reader, writer, key)
+                    # if return value is a single value then we found it
+                    # else we get a kbucket of closest nodes and we can't find it.
+
                 case Message.STORE:
 
 
@@ -274,7 +280,26 @@ class KademliaHandler:
         :param key:The key for which we want to find.
         :param reader: The reader of the socket
         :param writer: The writer of the socket
-        :return: True if the operation was successful.
+        :return: True if the operation was successful. Kbucket of known nodes if it doesn't have it
+        """
+
+        """
+        FIND_VALUE response format
+        
+    
+        Message Format
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  Size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Message type   |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Body           |  3             | end           | Size -4       |
+        +-----------------+----------------+---------------+---------------+
+        
+        
+        
         """
         value = self.local_node.local_hash_table.get(key)
         if value != None:
@@ -283,10 +308,12 @@ class KademliaHandler:
                            + MESSAGE_TYPE_FIELD_SIZE
                            + sys.getsizeof(value) )
             header = struct.pack(">HH", message_size, Message.FIND_VALUE_SUCCESS)
+            body = key.to_bytes(KEY_SIZE, byteorder="big")
+            #  same as DHT_SUCCESS message return key
             if type(value) == bytes:
-                body = value
+                body += value # AND value
             else:
-                body = value.to_bytes(KEY_SIZE, byteorder="big")
+                body += value.to_bytes(KEY_SIZE, byteorder="big")
             response = header + body
             try:
                 writer.write(response)
@@ -297,6 +324,7 @@ class KademliaHandler:
                 return False
         else:
             # else this acts as handle_find_nodes_request
+
             return self.handle_find_nodes_request(reader,writer,key)
 
     async def handle_find_nodes_request(self, reader, writer, key: int):
@@ -753,78 +781,21 @@ class DHTHandler:
 
         # If the value is not in the local storage, we have to get it from the Kademlia network from the other peers.
         if value is None:
-            # TODO retrieve value in the network
+
             # needs to send a kademlia get message.
             # better to start working there
+            find_value_response = await self.k_handler.handle_find_value_request(reader, writer, key)
+            # this way as we pass the reader / writer this will be handled on kademlia interface
+            # kademlia handler will act as it got FIND_VALUE request
+            # if it finds the value it returns true and sends the key value pair back to the passed reader/writer
+            # as we use same message types for dht_get-find_value and their respective success failure responses
+            # it will be seamless
+            # if it can't find it, it will return kbucket of closest nodes.
 
-            value = None
-            pass
-
-        # If the value was not found in the network, a DHT_FAILURE will be sent back to the requester.
-        if value is None:
-
-            # Define the DHT_FAILURE message
-            """
-            Structure of DHT_FAILURE  message
-            +-----------------+----------------+---------------+---------------+
-            |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-            +-----------------+----------------+---------------+---------------+
-            |  size           |  0             |  1            |  2            |
-            +-----------------+----------------+---------------+---------------+
-            |  DHT_FAILURE    |  2             |  3            |  2            |
-            +-----------------+----------------+---------------+---------------+
-            |  key            |  4             |  35           |  32           |
-            +-----------------+----------------+---------------+---------------+
-            """
-            message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
-            response = struct.pack(">HH", message_size, Message.DHT_FAILURE)
-            response += key.to_bytes(KEY_SIZE, byteorder="big")
-
-            try:
-                writer.write(response)
-                await writer.drain()
-            except Exception as e:
-                print(f"[-] Failed to send DHT_FAILURE {e}")
-                await bad_packet(reader, writer, data=response)
+            if find_value_response == True:
+                return True
+            else:
                 return False
-
-            print(f"[+] {remote_address}:{remote_port} <<< DHT_FAILURE")
-            return True
-
-        # If the value was found, the value is sent back to the requester
-        else:
-            # Define the DHT Success message
-            """
-            Structure of DHT_SUCCESS message
-            +-----------------+----------------+---------------+---------------+
-            |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-            +-----------------+----------------+---------------+---------------+
-            |  size           |  0             |  1            |  2            |
-            +-----------------+----------------+---------------+---------------+
-            |  DHT_SUCCESS    |  2             |  3            |  2            |
-            +-----------------+----------------+---------------+---------------+
-            |  key            |  4             |  35           |  32           |
-            +-----------------+----------------+---------------+---------------+
-            |  value          |  36            |  end          |  variable     |
-            +-----------------+----------------+---------------+---------------+
-            """
-
-            message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE + len(value)
-
-            response = struct.pack(">HH", message_size, Message.DHT_SUCCESS)
-            response += key.to_bytes(KEY_SIZE, byteorder="big")
-            response += value
-
-            try:
-                writer.write(response)
-                await writer.drain()
-            except Exception as e:
-                print(f"[-] Failed to send DHT_SUCCESS {e}")
-                await bad_packet(reader, writer, data=response)
-                return False
-
-            print(f"[+] {remote_address}:{remote_port} <<< DHT_SUCCESS")
-            return True
 
     async def handle_put_request(self, reader: StreamReader, writer: StreamWriter, ttl: int, replication: int, key: int,
                                  value: bytes):
