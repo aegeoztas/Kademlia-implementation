@@ -24,18 +24,17 @@ NB_OF_CLOSEST_PEERS = os.getenv("NB_OF_CLOSEST_PEERS")
 # Concurrency parameter
 ALPHA = os.getenv("ALPHA")
 TIMEOUT = os.getenv("TIMEOUT")
-
+MAXREPLICATION = os.getenv("MAX_REPLICATION")
 
 # TODO finish dht get
 # TODO finish dht put
 # TODO implment echo
+# TODO (EGE) I feel like we have used the aplha value wrong and made a mistake there go over it later.
 """
 "In All RPCs, the recipent must echo a 160 bit random rpc ID which provides some resistance to address forgery. 
 PINGS can also be piggy backed on RPC replies for RPC recipient to obtain additional assurance of the sender's network address. 
-
-
 """
-
+# TODO add a way for DHThandler (or just handler?) to use kademlia one.
 class DHTHandler:
     """
     The role of this class is to handle incoming messages that are
@@ -287,9 +286,17 @@ class KademliaHandler:
         # A specific handler is called depending on the message type.
         try:
             match message_type:
-                case Message.KADEMLIA_GET:
-                    # TODO add message KADEMLIA_GET to kademlia handler
-                    pass
+                case Message.FIND_VALUE:
+                    """
+                    Body of FIND_VALUE
+                     +-----------------+----------------+---------------+---------------+
+                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+                    +-----------------+----------------+---------------+---------------+
+                    |  key            |  0             |  31           |  32           |
+                    +-----------------+----------------+---------------+---------------+
+                    """
+                    key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
+                    return_status = await self.handle_find_value_request(reader, writer, key)
                 case Message.STORE:
                     # TODO add message store to kademlia handler
                     pass
@@ -317,7 +324,8 @@ class KademliaHandler:
                     key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
                     return_status = await self.handle_find_nodes_request(reader, writer, key)
 
-                case Message.DHT_STORE:
+                case Message.STORE:
+                    # this is pretty much equal to dht put
                     """
                     Body of DHT_PUT
                     +-----------------+----------------+---------------+---------------+
@@ -371,19 +379,38 @@ class KademliaHandler:
 
         return True
 
-    async def handle_store_request(self, ttl: int, key: int, value: bytes):
+    async def handle_store_request(self, replication: int, ttl: int, key: int, value: bytes):
         """
         This function handles a store message. If this function is called, this node has been designated to store a value.
         It must then store the value in its storage.
         :param reader: The reader of the socket.
-        :param writer: The writer of the socket.
+        :param replication: the number of times that this key,value pair should be replicated through the network.
         :param ttl: The time to live of the value to be stored.
         :param key: The 256 bit key associated to the value.
         :param value: The value to be stored.
         :return: True if the operation was successful.
         """
+        # TODO handle_store_request is incomplete need to add republishing logic.
+
         self.local_node.local_hash_table.put(key, value, ttl)
-        return True
+        if replication == 0:
+            return True
+        elif replication > MAXREPLICATION:
+            replication = MAXREPLICATION
+            #here the replication is only a hint and too much of it can be bad.
+            # so we set cap on it.
+            # then on our local bucket send closest places
+            nodes_to_store: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+            # TODO this needs to count each of these closest peers as well so replication is counted
+            # both depth wise(how many hops to last) AND width wise (how many paralel hops).
+            # also replication might also be used to tell how many times same key should be used.
+            # like maybe use different keys
+
+            tasks = [self.send_store_message(node, key) for node in nodes_to_query]
+            #
+        else:
+            pass
+
     async def handle_find_value_request(self, reader, writer, key: int):
         """
         This function finds if it has the key asked.
@@ -544,10 +571,10 @@ class KademliaHandler:
         :param recipient: A node tuple that represents the peer to which the message will be sent.
         :return: True if the operation was successful.
         """
-        # Definition of FIND_NODES query
-        # TODO make the changes to this so that it is different from find nodes
+
+
         """
-        Structure of FIND_NODES query
+        Structure of FIND_NODE query
         +-----------------+----------------+---------------+---------------+
         |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
         +-----------------+----------------+---------------+---------------+
@@ -705,6 +732,9 @@ class KademliaHandler:
                 print("Body of the response has the wrong format")
                 return None
 
+    async def send_store_message(self,recipient: NodeTuple, replication: int, ttl: int, key: int, value: bytes):
+        #TODO finish send store message
+        pass
 
 
 
