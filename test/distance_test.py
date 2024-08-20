@@ -15,7 +15,7 @@ def generate_random_id() -> int:
 
 
 def id_distance_test():
-    # Non Euclidean metric
+    # Non-Euclidean metric
     # Property 1
     assert (key_distance(0, 0) == 0)
     # Property 2 symmetry

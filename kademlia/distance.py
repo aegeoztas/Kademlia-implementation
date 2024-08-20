@@ -1,6 +1,3 @@
-# Keys and node IDs have a length of 256 bit
-KEY_LENGTH = 4
-
 
 def key_distance(key1: int, key2: int) -> int:
     """
