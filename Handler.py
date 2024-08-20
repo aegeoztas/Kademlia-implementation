@@ -35,7 +35,7 @@ REPLICATION_SIZE = os.getenv("REPLICATION_SIZE")
 "In All RPCs, the recipent must echo a 160 bit random rpc ID which provides some resistance to address forgery. 
 PINGS can also be piggy backed on RPC replies for RPC recipient to obtain additional assurance of the sender's network address. 
 """
-# TODO add a way for DHThandler (or just handler?) to use kademlia one.
+
 
 
 
