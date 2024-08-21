@@ -2,4 +2,4 @@
 from .distance import *
 from .dummy import *
 from .k_bucket import *
-from .routing_table import *
+# from .routing_table import *

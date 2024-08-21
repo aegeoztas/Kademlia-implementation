@@ -1,12 +1,19 @@
 import math
+import os
 from collections import deque
+from dotenv import load_dotenv
 
 from kademlia.dummy import ping_node
-from .distance import KEY_LENGTH, key_distance
+from .distance import key_distance
 
+# Load .env file, useful for testing purpose.
+load_dotenv()
+
+# Global variables
 MAX_PORT_NUMBER = 65535
-MAX_KEY_VALUE = math.pow(2, KEY_LENGTH) - 1  # The maximum value a key of an object or node id can have
-K = 4  # The capacity of one single K-Bucket
+KEY_BIT_LENGTH = int(os.getenv("KEY_BIT_LENGTH")) # The number of bit in a key
+MAX_KEY_VALUE = math.pow(2, KEY_BIT_LENGTH) - 1  # The maximum value a key of an object or node id can have
+K = int(os.getenv("K")) # The capacity of one single K-Bucket
 
 
 class NodeTuple:
@@ -16,7 +23,14 @@ class NodeTuple:
     """
 
     def __init__(self, ip_address: str, port: int, node_id: int):
+        """
+        The constructor of a NodeTuple
+        :param ip_address: (str) The ip address of the remote peer.
+        :param port: (int) The port of the remote peer.
+        :param node_id:(int) The id (key) of the peer.
+        """
 
+        # Validation of the parameters
         if port < 0 or port > MAX_PORT_NUMBER:
             raise ValueError(f"Port must be between 0 and {MAX_PORT_NUMBER}")
         if node_id < 0:
@@ -29,9 +43,26 @@ class NodeTuple:
         self.node_id = node_id
 
     def __eq__(self, other):
+        """
+        Override of the method equal. The equality is defined by with equality of all components.
+        :param other: another NodeTuple
+        :return: true if the components of both NodeTuples are equals.
+        """
         return self.ip_address == other.ip_address and self.port == other.port and self.node_id == other.node_id
 
+    def __str__(self):
+        """
+        Override of the method __str__. Used for testing.
+        :return: A string representation of the NodeTuple.
+        """
+        return f"Node Tuple information [ Node ID: {self.node_id}, port: {self.port}, IP: {self.ip_address} ]"
+
     def key_distance_to(self, key: int) -> int:
+        """
+        This method returns the xor distance (int) between the id of the peer and the key passed in parameters.
+        :param key: The key to compute the distance with.
+        :return: The xor distance (int)
+        """
         return key_distance(self.node_id, key)
 
     @staticmethod
@@ -41,16 +72,16 @@ class NodeTuple:
         :param node_id: A node ID in integer representation.
         :return: The node ID in binary representation stored in a string.
         """
-        return format(node_id, f'0{KEY_LENGTH}b')
+        return format(node_id, f'0{KEY_BIT_LENGTH}b')
 
-
-def has_prefix(key: int, prefix: str):
-    """
-    The method has_prefix returns true if the id matches the prefix
-    :param key: the key of the node or the distance (int)
-    :param prefix: the prefix (str)
-    """
-    return NodeTuple.node_id_binary_representation(key).startswith(prefix)
+    @staticmethod
+    def has_prefix(key: int, prefix: str)->bool:
+        """
+        The method has_prefix returns true if the id matches the prefix
+        :param key: the key of the node or the distance (int)
+        :param prefix: the prefix (str)
+        """
+        return NodeTuple.node_id_binary_representation(key).startswith(prefix)
 
 
 class KBucket:

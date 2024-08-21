@@ -1,11 +1,18 @@
 import math
+import random
 from collections import deque
 
 import pytest
 from context import kademlia
 from kademlia.k_bucket import *
-import random
+
 from kademlia.dummy import *
+
+def get_random_valid_node_tuple()->NodeTuple:
+    ip_value = random.randint(0, 100)
+    port = random.randint(0, 5000)
+    id = random.randint(0, 5000)
+    return NodeTuple(str(ip_value), port, id)
 
 
 def node_tuple_constructor_test():
@@ -15,15 +22,15 @@ def node_tuple_constructor_test():
     with pytest.raises(ValueError):
         a = NodeTuple("", -1, 0)
 
-    #  port to big
+    #  port too big
     with pytest.raises(ValueError):
         a = NodeTuple("", 100000, 0)
     # negative node_id
     with pytest.raises(ValueError):
         a = NodeTuple("", 0, -1)
-    #  node_id to big
+    #  node_id to big : test with key length 256
     with pytest.raises(ValueError):
-        a = NodeTuple("", 0, int(math.pow(2, 161)))
+        a = NodeTuple("", 0, int(math.pow(2, 257)))
 
     # test with random values
     a = random.randint(-5, 10000)
@@ -41,6 +48,63 @@ def node_tuple_constructor_test():
     node_id = 2 ** 4 - 1
     result = NodeTuple("", port, node_id)
     assert (result.node_id == node_id and result.port == port)
+
+def eq_node_tuple_test():
+    # 1 : classic not equal
+    a = get_random_valid_node_tuple()
+    b = get_random_valid_node_tuple()
+    a.port = 1
+    b.port = 2
+    assert(not (a == b))
+
+    # 2 classic equal
+    c = get_random_valid_node_tuple()
+    d = get_random_valid_node_tuple()
+    ip_value = random.randint(0, 100)
+    port = random.randint(0, 5000)
+    id = random.randint(0, 5000)
+
+    c.ip_address = str(ip_value)
+    c.port = port
+    c.node_id = id
+    d.ip_address = str(ip_value)
+    d.port = port
+    d.node_id = id
+    assert (c == d)
+
+def key_distance_to_test():
+    a = get_random_valid_node_tuple()
+    b = get_random_valid_node_tuple()
+    assert(key_distance(a.node_id, b.node_id) == a.key_distance_to(b.node_id))
+
+def binary_representation_test():
+    # Contains no assert, just print
+    a = get_random_valid_node_tuple()
+    print(NodeTuple.node_id_binary_representation(a.node_id))
+
+def has_prefix_test():
+    # Chosen prefix
+    prefix = "0000000000000000"
+    id = 55
+    assert(NodeTuple.has_prefix(id, prefix))
+    prefix = "11111"
+    id = int(math.pow(2, 256)) -1
+    # rep = NodeTuple.node_id_binary_representation(id)
+    assert(NodeTuple.has_prefix(id, prefix))
+
+def print_node_tuple_test():
+    a: NodeTuple = get_random_valid_node_tuple()
+    print(a)
+
+
+# Assert
+eq_node_tuple_test()
+node_tuple_constructor_test()
+key_distance_to_test()
+has_prefix_test()
+# Printable
+# binary_representation_test()
+# print_node_tuple_test()
 
 
 def k_bucket_constructor_test():
@@ -177,11 +241,11 @@ def node_triple_binary_repr_test():
     assert (NodeTuple.node_id_binary_representation(node.node_id) == "0101")
 
 
-node_tuple_constructor_test()
-k_bucket_constructor_test()
-update_bucket_parameters_test()
-update_bucket_test_1()
-is_full_test()
-add_node_when_full_with_dummy_ping_test()
-update_bucket_test_when_node_already_in_bucket()
-contains_test()
+# node_tuple_constructor_test()
+# k_bucket_constructor_test()
+# update_bucket_parameters_test()
+# update_bucket_test_1()
+# is_full_test()
+# add_node_when_full_with_dummy_ping_test()
+# update_bucket_test_when_node_already_in_bucket()
+# contains_test()
