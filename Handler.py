@@ -11,6 +11,12 @@ from Connection import Connection
 from kademlia.distance import key_distance
 from MessageTypes import Message
 import heapq
+import argparse
+
+HOST = "127.0.0.1"
+PORT = 7401
+
+
 
 load_dotenv()
 # Fields sizes in number of bytes
@@ -784,3 +790,78 @@ class DHTHandler:
         """
         return_value = self.k_handler.handle_store_request(reader=reader, writer =writer, ttl=ttl,replication=replication,key=key,value=value)
         return return_value
+
+def main():
+    host = HOST
+    port = PORT
+    K_HOST = "127.0.0.2"
+
+    # parse commandline arguments
+    usage_string = ("Run a DHT module mockup with local storage.\n\n"
+                   + "Multiple API clients can connect to this same instance.")
+    cmd = argparse.ArgumentParser(description=usage_string)
+    cmd.add_argument("-a", "--address",
+                     help="Bind server to this address")
+    cmd.add_argument("-p", "--port",
+                     help="Bind server to this port")
+    cmd.add_argument("-k", "--kademlia_address",
+                     help="Bind Kademlia server to this address")
+    cmd.add_argument("-t", "--type",
+                     help="What kind of DHT interface.('API'/'Kademlia')")
+    args = cmd.parse_args()
+
+    if args.address is not None:
+        host = args.address
+
+    if args.port is not None:
+        port = args.port
+
+    if args.kademlia_address is not None:
+        k_host = K_HOST
+    # setup storage lock
+    # setup storage lock
+    global storage_lock
+    storage_lock = asyncio.Lock()
+
+    # Create the local node instance
+    local_node = LocalNode(host, port )
+
+    # Create the Kademlia handler instance
+    k_handler = KademliaHandler(local_node)
+
+
+
+    if args.type == "API":
+        dht_handler = DHTHandler(local_node, k_handler)
+        handler = lambda r, w: handle_client(r, w, dht_handler)
+    elif args.type == "Kademlia":
+        handler = lambda r, w: handle_client(r, w, k_handler)
+    else:
+        print(f"Unknown type '{args.type}', please use 'API' or 'Kademlia'")
+        sys.exit(1)
+
+    serv = asyncio.start_server(handler,
+                                host=host,
+                                port=port,
+                                family=socket.AddressFamily.AF_INET,
+                                reuse_address=True,
+                                reuse_port=True)
+    # Create asyncio server to listen for incoming API or Kademlia messages
+    loop = asyncio.get_event_loop()
+
+    server_coro = asyncio.start_server(handler, host=host, port=port, reuse_address=True, reuse_port=True)
+    server = loop.run_until_complete(server_coro)
+
+    print(f"[+] DHT mockup listening on {host}:{port}")
+
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        print("[i] Received SIGINT, shutting down...")
+    finally:
+        server.close()
+        loop.run_until_complete(server.wait_closed())
+        loop.close()
+
+if __name__ == '__main__':
+    main()
