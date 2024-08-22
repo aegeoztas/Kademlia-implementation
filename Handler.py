@@ -1,14 +1,12 @@
 import asyncio
-import concurrent
 from LocalNode import LocalNode
 from kademlia import NodeTuple
 import os
-import sys
 from dotenv import load_dotenv
 from util import *
 from asyncio.streams import StreamReader, StreamWriter
 from Connection import Connection
-from kademlia.distance import key_distance
+from distance import key_distance
 from MessageTypes import Message
 import heapq
 
@@ -162,6 +160,8 @@ class KademliaHandler:
         except Exception as e:
             await bad_packet(reader, writer, f"Wrongly formatted message", buf)
         return return_status
+
+
     async def handle_ping(self, reader, writer):
         """
         This function handles a ping message. It will just send a pong response.

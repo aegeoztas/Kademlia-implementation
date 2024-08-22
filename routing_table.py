@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from collections import deque
 
-from .distance import KEY_LENGTH, key_distance
-from .k_bucket import KBucket, NodeTuple, has_prefix, MAX_PORT_NUMBER, MAX_KEY_VALUE
+from distance import KEY_LENGTH, key_distance
+from k_bucket import KBucket, NodeTuple, has_prefix, MAX_PORT_NUMBER, MAX_KEY_VALUE
 
 
 class TreeNode(ABC):

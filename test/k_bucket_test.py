@@ -1,12 +1,13 @@
-import math
 import random
-from collections import deque
-
 import pytest
-from context import kademlia
-from kademlia.k_bucket import *
+import sys
+import os
 
-from kademlia.dummy import *
+# Add the project directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from k_bucket import *
+from ping import *
 
 def get_random_valid_node_tuple()->NodeTuple:
     ip_value = random.randint(0, 100)
@@ -14,6 +15,9 @@ def get_random_valid_node_tuple()->NodeTuple:
     id = random.randint(0, 5000)
     return NodeTuple(str(ip_value), port, id)
 
+##############################################################
+##### NodeTuple
+##############################################################
 
 def node_tuple_constructor_test():
     # invalid parameters
@@ -96,16 +100,9 @@ def print_node_tuple_test():
     a: NodeTuple = get_random_valid_node_tuple()
     print(a)
 
-
-# Assert
-eq_node_tuple_test()
-node_tuple_constructor_test()
-key_distance_to_test()
-has_prefix_test()
-# Printable
-# binary_representation_test()
-# print_node_tuple_test()
-
+##############################################################
+##### K_Bucket
+##############################################################
 
 def k_bucket_constructor_test():
     # Test valid parameters
@@ -114,43 +111,91 @@ def k_bucket_constructor_test():
     assert (a.size == 0)
     assert (len(a.bucket) == 0)
 
-
-def update_bucket_parameters_test():
-    b = KBucket("")
-
+def update_bucket_invalid_param():
     # invalid parameters
-    # negative port
     with pytest.raises(ValueError):
-        b.update_bucket("", -1, 0)
+        k_bucket: KBucket = KBucket("1")
+        node_tuple: NodeTuple = get_random_valid_node_tuple()
+        node_tuple.node_id = 0
+        k_bucket.update_bucket(node_tuple)
 
-    #  port to big
-    with pytest.raises(ValueError):
-        b.update_bucket("", 100000, 0)
-    # negative id
-    with pytest.raises(ValueError):
-        b.update_bucket("", 0, -1)
-    # to big id
-    with pytest.raises(ValueError):
-        b.update_bucket("", 0, 2 ** 161)
+def update_bucket_case_1_and_2():
+    """
+    Warning: K must be set to the value 2 in the .env file in order for this test to work.
+    """
 
-    # wrong prefix
-    b = KBucket("1")
-    with pytest.raises(ValueError):
-        b.update_bucket("", 0, 0)
-    b = KBucket("000")
-    with pytest.raises(ValueError):
-        b.update_bucket("", 0, 2 ** 160 - 1)
+    # Test case 1 and case 2 [ Work only if K = 2 ! ]
+    k_bucket : KBucket = KBucket("")
+    first_node : NodeTuple = get_random_valid_node_tuple()
+    second_node : NodeTuple = get_random_valid_node_tuple()
+    k_bucket.update_bucket(first_node)
+    k_bucket.update_bucket(second_node)
+    k_bucket.update_bucket(first_node)
+    assert (k_bucket.bucket.popleft() == first_node)
+    assert (k_bucket.bucket.popleft() == second_node)
 
-    # Valid arguments
+def update_bucket_case_3_ping_node_true():
+    """
+    Warning: K must be set to the value 2 in the .env file in order for this test to work.
+            Dummy ping node must always return true in order for this test to pass
+    """
+    k_bucket : KBucket = KBucket("")
+    first_node : NodeTuple = get_random_valid_node_tuple()
+    second_node : NodeTuple = get_random_valid_node_tuple()
+    third_node : NodeTuple = get_random_valid_node_tuple()
+    k_bucket.update_bucket(first_node)
+    k_bucket.update_bucket(second_node)
 
-    # right prefix and random other arguments
-    b = KBucket("0000000000")
-    port = random.randint(0, 65000)
-    node_id = random.randint(0, 10000)
-    b.update_bucket("", port, node_id)
 
-    b = KBucket("11111111111111111111")
-    b.update_bucket("", port, 2 ** 160 - 5)
+    k_bucket.update_bucket(third_node)
+
+    assert (k_bucket.bucket.popleft() == first_node)
+    assert (k_bucket.bucket.popleft() == second_node)
+    assert (len(k_bucket.bucket) == 0)
+
+
+def update_bucket_case_3_ping_node_false():
+    """
+    Warning: K must be set to the value 2 in the .env file in order for this test to work.
+            Dummy ping node must always return false in order for this test to pass
+    """
+    k_bucket : KBucket = KBucket("")
+    first_node : NodeTuple = get_random_valid_node_tuple()
+    second_node : NodeTuple = get_random_valid_node_tuple()
+    third_node : NodeTuple = get_random_valid_node_tuple()
+    k_bucket.update_bucket(first_node)
+    k_bucket.update_bucket(second_node)
+
+
+    k_bucket.update_bucket(third_node)
+
+    assert (k_bucket.bucket.popleft() == third_node)
+    assert (k_bucket.bucket.popleft() == second_node)
+    assert (len(k_bucket.bucket) == 0)
+
+
+
+
+
+
+
+
+
+# Assert
+eq_node_tuple_test()
+node_tuple_constructor_test()
+key_distance_to_test()
+has_prefix_test()
+k_bucket_constructor_test()
+update_bucket_invalid_param()
+update_bucket_case_1_and_2()
+update_bucket_case_3_ping_node_true()
+# update_bucket_case_3_ping_node_false()
+# Printable
+# binary_representation_test()
+# print_node_tuple_test()
+
+
 
 
 def update_bucket_test_1():
@@ -249,3 +294,4 @@ def node_triple_binary_repr_test():
 # add_node_when_full_with_dummy_ping_test()
 # update_bucket_test_when_node_already_in_bucket()
 # contains_test()
+

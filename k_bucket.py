@@ -3,8 +3,8 @@ import os
 from collections import deque
 from dotenv import load_dotenv
 
-from kademlia.dummy import ping_node
-from .distance import key_distance
+from ping import ping_node
+from distance import key_distance
 
 # Load .env file, useful for testing purpose.
 load_dotenv()
@@ -88,15 +88,17 @@ class KBucket:
     """
     A K-Bucket contains the information of at most K peers. All nodes contained
     in the K-Bucket must have their id matching the bucket_prefix. The bucket prefix therefore
-    represent the bucket id.
+    represent the bucket identity.
 
-    The nodes are stored in a queue data structure. The most recently seen Node is the head of the queue and
+    The nodes are stored in a queue data structure. The most recently seen Node is placed at the head of the queue and
     the least recently seen node is at the tail.
     """
 
     def __init__(self, bucket_prefix: str):
-
-        # bucket_prefix is the prefix of IDs of the nodes contained in the bucket.
+        """
+        The constructor of a KBucket.
+        :param bucket_prefix: the prefix of IDs of the nodes contained in the bucket.
+        """
         self.bucket_prefix: str = bucket_prefix
         # size represent the number of nodes that we have currently in the bucket
         self.size: int = 0
@@ -109,6 +111,10 @@ class KBucket:
         with the information of a specific peer.
         :param candidate_node: The information of the peer: ip_address, port and node_id
         """
+
+        # Verification of the parameters
+        if not NodeTuple.has_prefix(candidate_node.node_id, self.bucket_prefix):
+            raise ValueError("Attempted to insert peer information into a bucket with the wrong prefix.")
 
         # Update of the bucket content:
 

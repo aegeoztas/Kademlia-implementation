@@ -1,12 +1,3 @@
-import random
-import argparse
-import asyncio
-from socket import AF_INET
-from kademlia.routing_table import RoutingTable
-from kademlia.k_bucket import NodeTuple
-
-
-
 DHT_ADDR = "127.0.0.1"
 DHT_PORT = 7401
 
