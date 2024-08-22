@@ -148,14 +148,27 @@ class KBucket:
         """
         return self.size == K
 
-    def contains(self, node: NodeTuple) -> bool:
+    def __contains__(self, item : NodeTuple)-> bool:
         """
-        The method contains returns true if the bucket contains the specific node information and false otherwise.
+        Override of the method contains,  returns true if the bucket contains the specific node information and false otherwise.
         """
-        return self.bucket.__contains__(node)
+        return self.bucket.__contains__(item)
 
     def get_peers(self) -> deque[NodeTuple]:
         """
         The method get_peers returns the queue containing the information of the nodes.
         """
         return self.bucket
+
+    def __str__(self):
+        """
+        Override of the method __str__. Used for testing.
+        :return: a string representation of the KBucket with its content
+        """
+        value =  f"K-Bucket information [ Prefix: \"{self.bucket_prefix}\" Size: {self.size} ] "
+        value += "\nContent: "
+        for i, node in enumerate(self.bucket):
+            value += f"\n#{i}\t{node}"
+
+        return value
+
