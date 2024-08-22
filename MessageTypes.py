@@ -1,9 +1,9 @@
-from enum import IntEnum
+
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-class Message(IntEnum):
+class Message():
     # Messages
     # DHT
     DHT_PUT = os.getenv("DHT_PUT")
