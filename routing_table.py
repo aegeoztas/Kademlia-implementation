@@ -1,8 +1,10 @@
+import os
+import math
 from abc import ABC, abstractmethod
 from collections import deque
 
-from distance import KEY_LENGTH, key_distance
-from k_bucket import KBucket, NodeTuple, has_prefix, MAX_PORT_NUMBER, MAX_KEY_VALUE
+from distance import key_distance
+from k_bucket import KBucket, NodeTuple, MAX_PORT_NUMBER, MAX_KEY_VALUE
 
 
 class TreeNode(ABC):
@@ -19,6 +21,13 @@ class TreeNode(ABC):
     """
 
     def __init__(self, host_key: int, prefix: str):
+        """
+        Constructor of a TreeNode.
+        :param host_key: The id key of the local peer. It is a KEY_BIT_LENGTH bits key that represent the identity of
+        the node. This value is invariant in the whole tree.
+        :param prefix: The prefix associated with the TreeNode. Every node contained in the subtree of the node has its ID matching
+        the
+        """
         self.host_key: int = host_key
         self.prefix: str = prefix
 
