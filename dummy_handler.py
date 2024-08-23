@@ -42,5 +42,9 @@ class DummyHandler:
         print("Message type: ", message_type)
         print("Body: ", body)
 
+        response = b"Message received"
+        writer.write(response)
+        await writer.drain()  # Ensure data is sent
+
 
         return return_status

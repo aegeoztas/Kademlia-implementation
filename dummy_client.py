@@ -35,9 +35,9 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int):
         writer.write(full_message)
         await writer.drain()  # Ensure the message is sent
 
-        # # Await response from the server
-        # response = await reader.read(100)  # Adjust size depending on expected response
-        # print(f"Received response: {response.decode()}")
+        # Await response from the server
+        response = await reader.read(100)  # Adjust size depending on expected response
+        print(f"Received response: {response.decode()}")
 
     except Exception as e:
         print(f"Error communicating with server: {e}")
@@ -48,7 +48,7 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int):
 
 if __name__ == "__main__":
     # Example usage
-    message_type = 56 # Example message type (1 byte)
+    message_type = 56 # Example message type
     payload = b'Hello, Server!'  # Example payload
 
     asyncio.run(send_message(message_type, payload, '127.0.0.1', 8888))
