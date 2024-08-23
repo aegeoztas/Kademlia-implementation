@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from util import *
 from asyncio.streams import StreamReader, StreamWriter
 from Connection import Connection
-from distance import key_distance
+from xor_distance import key_distance
 from MessageTypes import Message
 import heapq
 

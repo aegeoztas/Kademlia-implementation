@@ -1,9 +1,12 @@
-import pytest
 import random
 import secrets
-from context import kademlia
+import sys
+import os
 
-from kademlia import key_distance
+# Add the project directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from xor_distance import key_distance
 
 
 def generate_random_id() -> int:

@@ -4,7 +4,7 @@ from collections import deque
 from dotenv import load_dotenv
 
 from ping import ping_node
-from distance import key_distance
+from xor_distance import key_distance
 
 # Load .env file, useful for testing purpose.
 load_dotenv()
@@ -12,7 +12,7 @@ load_dotenv()
 # Global variables
 MAX_PORT_NUMBER = 65535
 KEY_BIT_LENGTH = int(os.getenv("KEY_BIT_LENGTH")) # The number of bit in a key
-MAX_KEY_VALUE = math.pow(2, KEY_BIT_LENGTH) - 1  # The maximum value a key of an object or node id can have
+MAX_KEY_VALUE = int(math.pow(2, KEY_BIT_LENGTH)) - 1  # The maximum value a key of an object or node id can have
 K = int(os.getenv("K")) # The capacity of one single K-Bucket
 
 
