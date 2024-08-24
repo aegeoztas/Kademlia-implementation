@@ -44,11 +44,11 @@ class NodeTuple:
 
     def __eq__(self, other):
         """
-        Override of the method equal. The equality is defined by with equality of all components.
+        Override of the method equal. The equality is defined by with the equality of the node_id.
         :param other: another NodeTuple
         :return: true if the components of both NodeTuples are equals.
         """
-        return self.ip_address == other.ip_address and self.port == other.port and self.node_id == other.node_id
+        return self.node_id == other.node_id
 
     def __str__(self):
         """
