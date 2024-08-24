@@ -10,12 +10,12 @@ load_dotenv()
 SIZE_FIELD_SIZE = int(os.getenv("SIZE_FIELD_SIZE"))
 MESSAGE_TYPE_FIELD_SIZE = int(os.getenv("MESSAGE_TYPE_FIELD_SIZE"))
 
-
 async def send_message(message_type: int, payload: bytes, host: str, port: int):
 
     # Declaration of reader and writer
     reader: StreamReader
     writer: StreamWriter
+    full_response = None
 
     try:
         # Establish connection to server
@@ -36,8 +36,12 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int):
         await writer.drain()  # Ensure the message is sent
 
         # Await response from the server
-        response = await reader.read(100)  # Adjust size depending on expected response
-        print(f"Received response: {response.decode()}")
+        response_size_bytes = await reader.read(SIZE_FIELD_SIZE)
+        response_size: int= struct.unpack(">H", response_size_bytes)[0]
+        response = await reader.read(response_size)
+        full_response = response_size_bytes + response
+
+
 
     except Exception as e:
         print(f"Error communicating with server: {e}")
@@ -45,6 +49,21 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int):
     finally:
         writer.close()
         await writer.wait_closed()
+        return full_response
+
+
+
+
+async def send_ping(host: str, port: int):
+    a = 1
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     # Example usage
