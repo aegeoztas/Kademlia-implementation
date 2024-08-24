@@ -1,4 +1,31 @@
-class DHTHandler:
+import os
+
+from LocalNode import LocalNode
+from kademlia_handler import DHTHandler, KademliaHandler
+from asyncio.streams import StreamReader, StreamWriter
+from util import *
+from MessageTypes import Message
+
+SIZE_FIELD_SIZE = os.getenv("SIZE_FIELD_SIZE")
+MESSAGE_TYPE_FIELD_SIZE = os.getenv("MESSAGE_TYPE_FIELD_SIZE")
+KEY_SIZE = os.getenv("KEY_SIZE")
+IP_FIELD_SIZE = os.getenv("IP_FIELD_SIZE")
+PORT_FIELD_SIZE = os.getenv("PORT_FIELD_SIZE")
+NB_OF_CLOSEST_PEERS = os.getenv("NB_OF_CLOSEST_PEERS")
+
+# Concurrency parameter
+ALPHA = os.getenv("ALPHA")
+TIMEOUT = os.getenv("TIMEOUT")
+MAXREPLICATION = os.getenv("MAX_REPLICATION")
+TLL_SIZE =   os.getenv("TLL_SIZE")
+MAXTTL = os.getenv("MAX_TTL")
+REPLICATION_SIZE = os.getenv("REPLICATION_SIZE")
+
+
+
+
+
+class DHT_APIHandler ( DHTHandler):
     """
     The role of this class is to handle incoming messages that are
     reaching the local node and using DHT API
@@ -7,7 +34,8 @@ class DHTHandler:
     def __init__(self, local_node: LocalNode, kademlia_handler: KademliaHandler):
         # self.local_node: LocalNode = local_node
         # it doesn't make sense for dht handler to have it's own local node
-        self.k_handler = kademlia_handler
+
+        super().__init__(local_node,kademlia_handler)
         """
 
         Constructor

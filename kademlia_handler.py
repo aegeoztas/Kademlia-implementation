@@ -61,12 +61,7 @@ class KademliaHandler:
         """
         This function handles incoming requests according to their content.
         :param buf: A buffer of bytes containing the content of the message.
-        :param reader: The StreamReader of the socker.
-        :param writer: The StreamWriter of the socket.
-        :return: True if the operation was successful.
-        """
-
-        """
+        :param reader: The StreamReader of
         Message Format
         +-----------------+----------------+---------------+---------------+
         |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
@@ -77,7 +72,12 @@ class KademliaHandler:
         +-----------------+----------------+---------------+---------------+
         |  Body           |  3             | end           | Size -4       |
         +-----------------+----------------+---------------+---------------+
+        the socker.
+        :param writer: The StreamWriter of the socket.
+        :return: True if the operation was successful.
         """
+
+        """"""
         # Extracting header and body of the message
         header = buf[:4]
         body = buf[4:]
