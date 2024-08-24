@@ -12,7 +12,7 @@ class LocalNode:
      It essentially contains the node's routing table and the node's storage.
     """
 
-    def __init__(self, ip : str, port: int, host_key: str):
+    def __init__(self, ip : str, port: int, host_key:bytes = None):
         self.ip: str = ip
         self.port: int = port
 
