@@ -1,14 +1,12 @@
 import asyncio
-import concurrent
 from LocalNode import LocalNode
-from kademlia import NodeTuple
+from k_bucket import NodeTuple
 import os
-import sys
 from dotenv import load_dotenv
 from util import *
 from asyncio.streams import StreamReader, StreamWriter
 from Connection import Connection
-from kademlia.distance import key_distance
+from xor_distance import key_distance
 from MessageTypes import Message
 import heapq
 
@@ -79,13 +77,32 @@ class KademliaHandler:
         body = buf[4:]
 
         # Extracting the message type
-        message_type = struct.unpack(">HH", header[2:4])
+        message_type = struct.unpack(">H", header[2:4])
 
         return_status = False
 
         # A specific handler is called depending on the message type.
         try:
             match message_type:
+
+                # Kademlia specific messages
+                case Message.PING:
+
+                    """
+                    Body of PING
+                    +-----------------+----------------+---------------+---------------+
+                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+                    +-----------------+----------------+---------------+---------------+
+                    |  Size           |  0             |  1            |  2            |
+                    +-----------------+----------------+---------------+---------------+
+                    |  Message type   |  2             |  3            |  2            |
+                    +-----------------+----------------+---------------+---------------+
+                    |  RPC ID         |  4             | 131           | 128           |
+                    +-----------------+----------------+---------------+---------------+
+                    """
+                    return_status = await self.handle_ping(reader, writer)
+
+
                 case Message.FIND_VALUE:
                     """
                     Body of FIND_VALUE
@@ -130,17 +147,7 @@ class KademliaHandler:
                     value = body[ TLL_SIZE +REPLICATION_SIZE + 1  + KEY_SIZE :]
                     return_status = await self.handle_store_request(replication=replication, ttl= ttl, key=key, value=value)
 
-                # Kademlia specific messages
-                case Message.PING:
 
-                    """
-                    Body of DHT_PUT
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                                                    empty
-                    """
-                    return_status = await self.handle_ping(reader, writer)
 
                 case Message.FIND_NODE:
                     """
@@ -162,6 +169,8 @@ class KademliaHandler:
         except Exception as e:
             await bad_packet(reader, writer, f"Wrongly formatted message", buf)
         return return_status
+
+
     async def handle_ping(self, reader, writer):
         """
         This function handles a ping message. It will just send a pong response.

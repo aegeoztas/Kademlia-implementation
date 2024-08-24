@@ -1,7 +1,7 @@
 import hashlib
 
 from LocalHashTable import *
-from kademlia.routing_table import *
+from routing_table import *
 
 
 

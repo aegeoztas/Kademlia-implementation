@@ -1,4 +1,3 @@
-
 def key_distance(key1: int, key2: int) -> int:
     """
     Returns the value of the distance between two keys using the xor distance, as specified in the Kademlia paper.
