@@ -1,6 +1,6 @@
 import asyncio
 from LocalNode import LocalNode
-from kademlia import NodeTuple
+from k_bucket import NodeTuple
 import os
 from dotenv import load_dotenv
 from util import *
@@ -77,7 +77,7 @@ class KademliaHandler:
         body = buf[4:]
 
         # Extracting the message type
-        message_type = struct.unpack(">HH", header[2:4])
+        message_type = struct.unpack(">H", header[2:4])
 
         return_status = False
 

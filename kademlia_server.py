@@ -1,13 +1,9 @@
 import asyncio
 import os
-import hashlib
 from asyncio import StreamReader, StreamWriter
-
-from LocalNode import LocalNode
-from kademlia_handler import KademliaHandler
-
 from dotenv import load_dotenv
 
+from LocalNode import LocalNode
 from kademlia_handler import KademliaHandler
 
 load_dotenv()
