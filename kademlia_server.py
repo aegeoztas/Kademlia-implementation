@@ -20,6 +20,7 @@ HOST_KEY_PEM = "123456789"
 
 
 async def handle_connection(reader: StreamReader, writer: StreamWriter, handler: KademliaHandler):
+
     try:
         # Server read first two bytes to get size of message
         size_field = await reader.read(SIZE_FIELD_SIZE)
@@ -33,7 +34,7 @@ async def handle_connection(reader: StreamReader, writer: StreamWriter, handler:
         # Handle the message request
         await handler.handle_request(full_message, reader, writer)
     except Exception as e:
-        print(f"Error handling connection: {e}")
+        print(f"Error handling connection a: {e}")
     finally:
         writer.close()
         await writer.wait_closed()

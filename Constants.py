@@ -35,4 +35,4 @@ TTL_FIELD_SIZE = int(os.getenv("TTL_FIELD_SIZE"))
 
 # Global variables
 NB_OF_CLOSEST_PEERS = int(os.getenv("NB_OF_CLOSEST_PEERS"))
-
+MAX_TTL = int(os.getenv("MAX_TTL"))

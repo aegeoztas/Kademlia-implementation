@@ -1,3 +1,5 @@
+import asyncio
+
 from LocalNode import LocalNode
 from k_bucket import NodeTuple
 from util import *
@@ -64,59 +66,10 @@ class KademliaHandler:
                     return_status = await self.handle_find_node_request(reader, writer, body)
                 case Message.FIND_VALUE:
                     return_status = await self.handle_find_value_request(reader, writer, body)
-
                 case _:
                     await bad_packet(reader, writer,
                                      f"Unknown message type {message_type} received",
                                      header)
-
-                # case Message.FIND_VALUE:
-                #     """
-                #     Body of FIND_VALUE
-                #      +-----------------+----------------+---------------+---------------+
-                #     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                #     +-----------------+----------------+---------------+---------------+
-                #     |  key            |  0             |  31           |  32           |
-                #     +-----------------+----------------+---------------+---------------+
-                #     While here find value is different than the DHT_GET usinng the .env both types are equal to each other.
-                #     It will return either success or failiure responses that are compatible with DHT_GET messages.
-                #     to passed reader / writer with either value or nothing.
-                #     """
-                #     key = int.from_bytes(body[0: KEY_SIZE - 1], byteorder="big")
-                #     # use kademlia interface to try to find the value there.
-                #     return_status = await self.handle_find_value_request(reader, writer, key)
-                #     # if return value is a single value then we found it
-                #     # else we get a kbucket of closest nodes and we can't find it.
-                #
-                # case Message.STORE:
-                #
-                #
-                #     """
-                #             Body of STORE MESSAGE
-                #             +-----------------+----------------+---------------+---------------+
-                #             |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                #             +-----------------+----------------+---------------+---------------+
-                #             |  TTL            |  0             |  1            |  2            |
-                #             +-----------------+----------------+---------------+---------------+
-                #             |  replication    |  2             |  2            |  1            |
-                #             +-----------------+----------------+---------------+---------------+
-                #             |  reserved       |  3             |  3            |  1            |
-                #             +-----------------+----------------+---------------+---------------+
-                #             |  key            |  8             |  39           |  32           |
-                #             +-----------------+----------------+---------------+---------------+
-                #             |  value          |  40            |  end          |  variable     |
-                #             +-----------------+----------------+---------------+---------------+
-                #     """
-                #     ttl =  int.from_bytes(body[0: TLL_SIZE - 1], byteorder="big")
-                #     replication = int.from_bytes(body[TLL_SIZE:  TLL_SIZE +REPLICATION_SIZE - 1], byteorder="big")
-                #     #reserved = int.from_bytes(body[TLL_SIZE +REPLICATION_SIZE ], byteorder="big")
-                #     key = int.from_bytes(body[TLL_SIZE +REPLICATION_SIZE + 1  : TLL_SIZE +REPLICATION_SIZE + 1  + KEY_SIZE - 1], byteorder="big")
-                #     value = body[ TLL_SIZE +REPLICATION_SIZE + 1  + KEY_SIZE :]
-                #     return_status = await self.handle_store_request(replication=replication, ttl= ttl, key=key, value=value)
-                #
-                #
-                #
-
 
         except Exception as e:
             await bad_packet(reader, writer, f"Wrongly formatted message", buf)
@@ -125,8 +78,9 @@ class KademliaHandler:
         if return_status:
             remote_address, remote_port = writer.get_extra_info("socket").getpeername()
             node_id = int.from_bytes(node_id_bytes, "big")
-            self.local_node.routing_table.update_table(remote_address, remote_port, node_id)
 
+            async with self.local_node.routing_table_lock:
+                self.local_node.routing_table.update_table(remote_address, remote_port, node_id)
 
         return return_status
 
@@ -228,12 +182,12 @@ class KademliaHandler:
         # If the ttl is 0, the request is dropped.
         if ttl <=  0:
             return False
-        elif ttl > MAXTTL:
-            ttl = MAXTTL
+        elif ttl > MAX_TTL:
+            ttl = MAX_TTL
 
         # Store the value in the local storage
-        self.local_node.local_hash_table.put(key, value, ttl)
-
+        async with self.local_node.local_hash_table_lock:
+            self.local_node.local_hash_table.put(key, value, ttl)
         return True
 
 
@@ -265,7 +219,8 @@ class KademliaHandler:
         key : int = int.from_bytes(request_body[RPC_ID_FIELD_SIZE:RPC_ID_FIELD_SIZE+KEY_SIZE], byteorder='big')
 
         # Getting the closest nodes
-        closest_nodes: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        async with self.local_node.routing_table_lock:
+            closest_nodes: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
 
         nb_of_nodes_found = len(closest_nodes)
 
@@ -367,8 +322,8 @@ class KademliaHandler:
         key: int = int.from_bytes(request_body[index:index + KEY_SIZE], byteorder='big')
 
         # Checking if the value is in the local storage
-
-        value : bytes = self.local_node.local_hash_table.get(key)
+        async with self.local_node.local_hash_table_lock:
+            value : bytes = self.local_node.local_hash_table.get(key)
 
         # If the value is present, we return it.
         if value:

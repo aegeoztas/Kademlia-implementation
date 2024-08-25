@@ -240,7 +240,7 @@ class KademliaService:
         contacted_nodes: set[NodeTuple] = set()
 
         # Send to each node
-        tasks = [self.send_find_node(node.ip_address, node.port, self.local_node.node_id, key) for node in nodes_to_query]
+        tasks = [asyncio.create_task(self.send_find_node(node.ip_address, node.port, self.local_node.node_id, key)) for node in nodes_to_query]
 
         while tasks:
 
@@ -262,6 +262,9 @@ class KademliaService:
                             if comparable_node < closest_nodes[0]:
                                 heapq.heappushpop(closest_nodes, comparable_node)
                                 tasks.append(asyncio.create_task(self.send_find_closest_nodes_message(node, key)))
+
+            # Update the task list with pending tasks
+            tasks = list(pending_tasks)
 
         # cleanup any and all tasks
         for task in tasks:

@@ -1,26 +1,15 @@
 import asyncio
-import os
+
 import secrets
 import struct
 import socket
-import sys
+
 from asyncio import StreamReader, StreamWriter
-from dotenv import load_dotenv
+
 from Constants import Message
 from k_bucket import NodeTuple
 
-load_dotenv()
-
-# Global variable
-SIZE_FIELD_SIZE = int(os.getenv("SIZE_FIELD_SIZE"))
-MESSAGE_TYPE_FIELD_SIZE = int(os.getenv("MESSAGE_TYPE_FIELD_SIZE"))
-RPC_ID_FIELD_SIZE = int(os.getenv("RPC_ID_FIELD_SIZE"))
-NUMBER_OF_NODES_FIELD_SIZE = int(os.getenv("NUMBER_OF_NODES_FIELD_SIZE"))
-KEY_SIZE =int(os.getenv("KEY_SIZE"))
-NB_OF_CLOSEST_PEERS = int(os.getenv("NB_OF_CLOSEST_PEERS"))
-IP_FIELD_SIZE = int(os.getenv("IP_FIELD_SIZE"))
-PORT_FIELD_SIZE = int(os.getenv("PORT_FIELD_SIZE"))
-
+from Constants import *
 
 async def send_message(message_type: int, payload: bytes, host: str, port: int, node_id: int,
                        no_response_expected: bool=False):
