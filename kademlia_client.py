@@ -7,6 +7,7 @@ import socket
 from asyncio import StreamReader, StreamWriter
 
 from Constants import Message
+from LocalNode import LocalNode
 from k_bucket import NodeTuple
 
 from Constants import *
@@ -30,7 +31,7 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int, 
     try:
 
         """
-        Structure of sent message
+        Message Format
         +-----------------+----------------+---------------+---------------+
         |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
         +-----------------+----------------+---------------+---------------+
@@ -40,20 +41,31 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int, 
         +-----------------+----------------+---------------+---------------+
         |  Node ID        |  4             |  35           |  32           |
         +-----------------+----------------+---------------+---------------+
-        |  body           |  36            | -             | variable      |
+        |  IP handler     |  36            | 39            | 4             |
+        +-----------------+----------------+---------------+---------------+
+        |  Port handler   |  40            | 41            | 2             |
+        +-----------------+----------------+---------------+---------------+
+        |  Body           |  42            | end           | -             |
         +-----------------+----------------+---------------+---------------+
         """
 
+        local_node: LocalNode = LocalNode("8.8.8.8", 88, "8888888")
+
+
         # Determine the size of the message and create the size field
-        size_of_message: int = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE +  len(
-            payload)  # Total size including the size field
+        size_of_message: int = (SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE + IP_FIELD_SIZE + PORT_FIELD_SIZE
+                                + len(payload))  # Total size including the size field
 
         size_field: bytes = struct.pack(">H", size_of_message)
         message_type_field: bytes = struct.pack(">H", message_type)
-        node_id_field: bytes =  node_id.to_bytes(32, byteorder='big')
+        node_id_field: bytes = local_node.node_id.to_bytes(32, byteorder='big')
+        ip_handler_field: bytes = socket.inet_aton(local_node.handler_ip)
+        port_handler_field: bytes = struct.pack(">H", local_node.handler_port)
+
 
         # Create full message
-        full_message: bytes = size_field + message_type_field + node_id_field + payload
+        full_message: bytes = (size_field + message_type_field + node_id_field + ip_handler_field
+                               + port_handler_field + payload)
 
         # Send the full message to the server
         writer.write(full_message)

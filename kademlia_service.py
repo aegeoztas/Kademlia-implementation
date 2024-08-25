@@ -20,7 +20,7 @@ class KademliaService:
         self.local_node: LocalNode = local_node
 
 
-    async def send_request(self, message_type: int, payload: bytes, host: str, port: int, node_id: int,
+    async def send_request(self, message_type: int, payload: bytes, host: str, port: int,
                            no_response_expected: bool = False) -> bytes:
         """
         This method is used to send a request to a remote peer.
@@ -28,7 +28,6 @@ class KademliaService:
         :param payload: The content of the request.
         :param host: The IP address of the remote peer.
         :param port: The port of the remote peer.
-        :param node_id: The node ID of the local peer.
         :param no_response_expected: if no response is expected after the request.
         :return: (bytes) containing the response of the request.
         """
@@ -47,7 +46,7 @@ class KademliaService:
 
         try:
             """
-            Structure of sent message
+            Message Format
             +-----------------+----------------+---------------+---------------+
             |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
             +-----------------+----------------+---------------+---------------+
@@ -57,20 +56,29 @@ class KademliaService:
             +-----------------+----------------+---------------+---------------+
             |  Node ID        |  4             |  35           |  32           |
             +-----------------+----------------+---------------+---------------+
-            |  body           |  36            | -             | variable      |
+            |  IP handler     |  36            | 39            | 4             |
+            +-----------------+----------------+---------------+---------------+
+            |  Port handler   |  40            | 41            | 2             |
+            +-----------------+----------------+---------------+---------------+
+            |  Body           |  42            | end           | -             |
             +-----------------+----------------+---------------+---------------+
             """
 
+
             # Determine the size of the message and create the size field
-            size_of_message: int = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE + len(
-                payload)  # Total size including the size field
+            size_of_message: int = (SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE + IP_FIELD_SIZE + PORT_FIELD_SIZE
+                                    + len(payload))  # Total size including the size field
 
             size_field: bytes = struct.pack(">H", size_of_message)
             message_type_field: bytes = struct.pack(">H", message_type)
-            node_id_field: bytes = node_id.to_bytes(32, byteorder='big')
+            node_id_field: bytes = self.local_node.node_id.to_bytes(32, byteorder='big')
+            ip_handler_field: bytes = socket.inet_aton(self.local_node.handler_ip)
+            port_handler_field: bytes = struct.pack(">H", self.local_node.handler_port)
+
 
             # Create full message
-            full_message: bytes = size_field + message_type_field + node_id_field + payload
+            full_message: bytes = (size_field + message_type_field + node_id_field + ip_handler_field
+                                   + port_handler_field + payload)
 
             # Send the full message to the server
             writer.write(full_message)
@@ -163,12 +171,11 @@ class KademliaService:
 
         raise ValueError("Invalid FIND_NODE_RESP message content")
 
-    async def send_find_node(self, host: str, port: int, node_id: int, key: int)->list[NodeTuple]:
+    async def send_find_node(self, host: str, port: int, key: int)->list[NodeTuple]:
         """
         This function is used to send a find request and to process the response
         :param host: the recipient IP address
         :param port: the port of the recipient
-        :param node_id: the node ID
         :param key: the key to find the closest nodes to.
         :return: True if the response was valid.
         """
@@ -190,7 +197,7 @@ class KademliaService:
 
         try:
 
-            response = await self.send_request(Message.FIND_NODE, content, host, port, node_id)
+            response = await self.send_request(Message.FIND_NODE, content, host, port)
 
         except Exception as e:
             return None
@@ -240,7 +247,7 @@ class KademliaService:
         contacted_nodes: set[NodeTuple] = set()
 
         # Send to each node
-        tasks = [asyncio.create_task(self.send_find_node(node.ip_address, node.port, self.local_node.node_id, key)) for node in nodes_to_query]
+        tasks = [asyncio.create_task(self.send_find_node(node.ip_address, node.port, key)) for node in nodes_to_query]
 
         while tasks:
 
@@ -264,14 +271,12 @@ class KademliaService:
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 closest_nodes.append(comparable_node)
                                 tasks.append(asyncio.create_task(self.send_find_node(node_info.ip_address,
-                                                                                     node_info.port,
-                                                                                     self.local_node.node_id, key)))
+                                                                                     node_info.port, key)))
                             elif all(comparable_node < n for n in closest_nodes):
                                 closest_nodes.remove(min(closest_nodes))
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 tasks.append(asyncio.create_task(self.send_find_node(node_info.ip_address,
-                                                                                     node_info.port,
-                                                                                     self.local_node.node_id, key)))
+                                                                                     node_info.port, key)))
             # Update the task list with pending tasks
             tasks = list(pending_tasks)
 

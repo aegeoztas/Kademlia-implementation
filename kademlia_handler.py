@@ -1,4 +1,4 @@
-import asyncio
+from sys import byteorder
 
 from LocalNode import LocalNode
 from k_bucket import NodeTuple
@@ -51,11 +51,11 @@ class KademliaHandler:
         index+=SIZE_FIELD_SIZE
         message_type: int = int(struct.unpack(">H", buf[index:index+MESSAGE_TYPE_FIELD_SIZE])[0])
         index+=MESSAGE_TYPE_FIELD_SIZE
-        node_id: int = int.from_bytes(buf[index:index+KEY_SIZE])
+        node_id: int = int.from_bytes(buf[index:index+KEY_SIZE], byteorder="big")
         index+=KEY_SIZE
         ip_handler: str = socket.inet_ntoa(buf[index:index + IP_FIELD_SIZE])
         index+=IP_FIELD_SIZE
-        port_handler: int = int.from_bytes(buf[index:index + PORT_FIELD_SIZE])
+        port_handler: int = int.from_bytes(buf[index:index + PORT_FIELD_SIZE], byteorder='big')
         index+=PORT_FIELD_SIZE
         body: bytes = buf[index:]
 
