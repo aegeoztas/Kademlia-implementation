@@ -96,16 +96,16 @@ class KademliaHandler:
             match message_type:
 
                 # Kademlia specific messages
+                # TODO add try catch
                 case Message.PING:
-                    #TODO add try catch
                     return_status = await self.handle_ping_request(reader, writer, body)
-
-                case Message.FIND_NODE:
-
-                    return_status = await self.handle_find_nodes_request(reader, writer, body)
-
                 case Message.STORE:
                     return_status = await self.handle_store_request(reader, writer, body)
+                case Message.FIND_NODE:
+                    return_status = await self.handle_find_nodes_request(reader, writer, body)
+                case Message.FIND_VALUE:
+                    return_status = await self.handle_find_value_request(reader, writer, body)
+
                 case _:
                     await bad_packet(reader, writer,
                                      f"Unknown message type {message_type} received",
@@ -378,7 +378,7 @@ class KademliaHandler:
         return True
 
 
-    async def handle_find_value(self, reader, writer, request_body: bytes)->bool:
+    async def handle_find_value_request(self, reader, writer, request_body: bytes)->bool:
         """
         This method handle a find value message. It will either send the value back if it is present in the local
         storage or the known k-closest nodes to the key if it is not
@@ -454,9 +454,62 @@ class KademliaHandler:
         else:
             # If the value is not present in the local storage, the list of known closest nodes to the key of the value
             # is returned.
-            return await self.handle_find_value(reader, writer, request_body)
+            return await self.handle_find_value_request(reader, writer, request_body)
 
 
+
+    async def find_closest_nodes_in_network(self, key: int)->list[NodeTuple]:
+        """
+        This method is used to find the closest nodes to a key in the network. It will send multiple FIND_NODE request,
+        until that it find the closest nodes.
+        :param key: The key to find the closest node to.
+        :return: the list of the closest nodes found in the network.
+        """
+
+
+        class ComparableNodeTuple:
+            # This class is used to compare two NodeTuple. A NodeTuple with a smaller distance to a specific key
+            # is considered greater than the other with a bigger distance.
+
+            def __init__(self, node_tuple: NodeTuple, reference_key: int):
+                self.nodeTuple : NodeTuple = node_tuple
+                self.reference_key : int = reference_key
+
+            def __lt__(self, other):
+                # The minimum of the heap will be the node with the greatest distance
+                return key_distance(self.nodeTuple.node_id, self.reference_key) > key_distance(other.nodeTuple.node_id,
+                                                                                               self.reference_key)
+
+        # The initial list of nodes to query is the k-closest nodes present in the local routing table.
+        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        closest_nodes : list[ComparableNodeTuple] = [ComparableNodeTuple(node, key) for node in nodes_to_query]
+        heapq.heapify(closest_nodes)
+
+        contacted_nodes: set[NodeTuple] = set()
+        # send our closest nodes find node message.
+        tasks = [self.send_find_closest_nodes_message(node, key) for node in nodes_to_query]
+
+        while tasks:
+            done_tasks, pending_tasks = asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+            for completed_task in done_tasks:
+                k_closest_nodes_received = await completed_task
+                if k_closest_nodes_received is not None:
+                    for node in k_closest_nodes_received:
+                        comparable_node = ComparableNodeTuple(node, key)
+                        if node not in contacted_nodes:
+                            contacted_nodes.add(node)  # add the node to contacted nodes.
+                            # If the new node is closer than the furthest in the heap, add it
+                            if comparable_node < closest_nodes[0]:
+                                heapq.heappushpop(closest_nodes, comparable_node)
+                                tasks.append(asyncio.create_task(self.send_find_closest_nodes_message(node, key)))
+
+        # cleanup any and all tasks
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        # return k closest nodes
+        return [node.nodeTuple for node in heapq.nsmallest(NB_OF_CLOSEST_PEERS, closest_nodes)]
 
     # async def handle_store_request(self, replication: int, ttl: int, key: int, value: bytes):
     #     """
@@ -576,59 +629,7 @@ class KademliaHandler:
 #
 
 #
-#     async def find_closest_nodes_in_network(self, key: int):
-#         """
-#                kademlia algorithms find node process.
-#                Uses send_find_closest_nodes_message to ittarate through the network.
-#                takes a node id and recipient of the message instead of a
-#                single Node tuple returns the k-nodes it knows that are closest to the given node id.
-#                """
-#         """
-#                Body of FIND_NODE
-#                +-----------------+----------------+---------------+---------------+
-#                |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-#                +-----------------+----------------+---------------+---------------+
-#                |  key            |  0             |  31           |  32           |
-#                +-----------------+----------------+---------------+---------------+
-#         """
-#         class ComparableNodeTuple:
-#             # this is a class to handle node comparisons based on their distance to the key
-#             def __init__(self, nodeTuple: NodeTuple, reference_key: int):
-#                 self.nodeTuple : NodeTuple = nodeTuple
-#                 self.reference_key : int = reference_key
-#             def __lt__(self, other):
-#                 # The minimum of the heap will be the node with the greatest distance
-#                 return key_distance(self.nodeTuple.node_id, self.reference_key) > key_distance(other.nodeTuple.node_id, self.reference_key)
-#
-#         nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
-#         closest_nodes : list[ComparableNodeTuple] = [ComparableNodeTuple(node, key) for node in nodes_to_query]
-#         heapq.heapify(closest_nodes)
-#
-#         contacted_nodes: set[NodeTuple] = set()
-#         # send our closest nodes find node message.
-#         tasks = [self.send_find_closest_nodes_message(node, key) for node in nodes_to_query]
-#
-#         while tasks:
-#             done_tasks, pending_tasks = asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-#
-#             for completed_task in done_tasks:
-#                 k_closest_nodes_received = await completed_task
-#                 if k_closest_nodes_received is not None:
-#                     for node in k_closest_nodes_received:
-#                         comparable_node = ComparableNodeTuple(node, key)
-#                         if node not in contacted_nodes:
-#                             contacted_nodes.add(node)  # add the node to contacted nodes.
-#                             # If the new node is closer than the furthest in the heap, add it
-#                             if comparable_node < closest_nodes[0]:
-#                                 heapq.heappushpop(closest_nodes, comparable_node)
-#                                 tasks.append(asyncio.create_task(self.send_find_closest_nodes_message(node, key)))
-#
-#         # cleanup any and all tasks
-#         for task in tasks:
-#             task.cancel()
-#         await asyncio.gather(*tasks, return_exceptions=True)
-#         # return k closest nodes
-#         return [node.nodeTuple for node in heapq.nsmallest(NB_OF_CLOSEST_PEERS, closest_nodes)]
+
 #     async def send_find_value_message(self, recipient: NodeTuple,value: bytes):
 #         """
 #         sends FIND_VALUE message of the Kademlia.

@@ -198,11 +198,12 @@ async def send_store(host: str, port: int, node_id: int, key: int, ttl: int,  va
     else:
         return False
 
-async def handle_find_node_resp(message_type: int, payload: bytes)-> bool:
+async def handle_find_node_resp(message_type: int, payload: bytes, rpc_id: bytes)-> bool:
     """
     This function is used to handle a find_node_resp
     :param message_type: the message type, should be FIND_NODE_RESP
     :param payload: the payload of the message
+     :param rpc_id: The rpc_id of the request
     :return: true if the operation was successful, false otherwise
     """
 
@@ -230,7 +231,7 @@ async def handle_find_node_resp(message_type: int, payload: bytes)-> bool:
     | node_id n       |  -             |  -            |  32           |
     +-----------------+----------------+---------------+---------------+
 
-        """
+    """
 
     if message_type == Message.FIND_NODE_RESP and payload[:RPC_ID_FIELD_SIZE] == rpc_id:
         index = RPC_ID_FIELD_SIZE
@@ -294,7 +295,7 @@ async def send_find_node(host: str, port: int, node_id: int, key: int):
     except Exception as e:
         print(f"Error while processing response: {e}")
 
-    if await handle_find_node_resp(message_type, payload):
+    if await handle_find_node_resp(message_type, payload, rpc_id):
         print("Find node successful")
     else:
         print("Find node failed")
@@ -364,7 +365,7 @@ async def send_find_value(host: str, port: int, node_id: int, key: int)->bool:
             return False
 
     if message_type == Message.FIND_NODE_RESP:
-        status : bool = await handle_find_node_resp(message_type, payload)
+        status : bool = await handle_find_node_resp(message_type, payload, rpc_id)
         if status:
             print("Find value request resulted in list of closest nodes")
             return True
@@ -387,6 +388,8 @@ if __name__ == "__main__":
 
     asyncio.run(send_find_node(remote_ip, remote_port, 55, 0))
     asyncio.run(send_store(remote_ip, remote_port, 55, 658432, 400, b"Hello World"))
+    asyncio.run(send_find_value(remote_ip, remote_port, 55, 658432))
+
 
 
 
