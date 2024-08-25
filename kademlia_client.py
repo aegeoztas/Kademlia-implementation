@@ -159,6 +159,101 @@ async def send_ping(host: str, port: int, node_id: int):
         print("Ping failed")
         return False
 
+async def send_store(host: str, port: int, node_id: int, key: int, ttl: int,  value: bytes)->bool:
+    """
+    This function is used to send a store request
+    :param host: the recipient IP address
+    :param port: the port of the recipient
+    :param node_id: the node ID
+    :param key: The key associated with the value.
+    :param ttl: The time-to-live of the value.
+    :param value: The value to be stored.
+    :return: True if the operation was successful, False otherwise
+    """
+    """
+    Body of STORE request 
+    +-----------------+----------------+---------------+---------------+
+    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+    +-----------------+----------------+---------------+---------------+
+    |  RPC ID         |  0             | 15            | 16            |
+    +-----------------+----------------+---------------+---------------+
+    |  key            |  20            | 51            | 32            |
+    +-----------------+----------------+---------------+---------------+
+    |  TTL            |  52            | 53            |  2            |
+    +-----------------+----------------+---------------+---------------+
+    |  value          |  54            | end           |   variable    |
+    +-----------------+----------------+---------------+---------------+
+    """
+
+    # Creation of the content of the request
+    rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
+
+    content : bytes = rpc_id
+    content += int.to_bytes(key,32,  byteorder='big')
+    content += struct.pack(">H", ttl)
+    content += value
+
+    if await send_message(Message.STORE, content, host, port, node_id, True) == "Message sent":
+        return True
+    else:
+        return False
+
+async def handle_find_node_resp(message_type: int, payload: bytes)-> bool:
+    """
+    This function is used to handle a find_node_resp
+    :param message_type: the message type, should be FIND_NODE_RESP
+    :param payload: the payload of the message
+    :return: true if the operation was successful, false otherwise
+    """
+
+    """
+    Structure of body of FIND_NODE_RESP message
+    +-----------------+----------------+---------------+---------------+
+    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+    +-----------------+----------------+---------------+---------------+
+    |  RPC ID         |  0             |  15           |  16           |
+    +-----------------+----------------+---------------+---------------+
+    | nb_node_found   |  16            |  17           |  2            |
+    +-----------------+----------------+---------------+---------------+
+    | IP 1            |  18            |  -            |  4            |
+    +-----------------+----------------+---------------+---------------+
+    | port 1          |  -             |  -            |  2            |
+    +-----------------+----------------+---------------+---------------+
+    | node_id 1       |  -             |  -            |  32           |
+    +-----------------+----------------+---------------+---------------+
+    ...
+    +-----------------+----------------+---------------+---------------+
+    | IP n            |  -             |  -            |  4            |
+    +-----------------+----------------+---------------+---------------+
+    | port n          |  -             |  -            |  2            |
+    +-----------------+----------------+---------------+---------------+
+    | node_id n       |  -             |  -            |  32           |
+    +-----------------+----------------+---------------+---------------+
+
+        """
+
+    if message_type == Message.FIND_NODE_RESP and payload[:RPC_ID_FIELD_SIZE] == rpc_id:
+        index = RPC_ID_FIELD_SIZE
+        nb_node_found = int.from_bytes(payload[index:index + NUMBER_OF_NODES_FIELD_SIZE], byteorder='big')
+        index += NUMBER_OF_NODES_FIELD_SIZE
+        list_of_nodes: list[NodeTuple] = []
+        for i in range(nb_node_found):
+            ip = socket.inet_ntoa(payload[index:index + IP_FIELD_SIZE])
+            index += IP_FIELD_SIZE
+            port = int.from_bytes(payload[index:index + PORT_FIELD_SIZE], byteorder='big')
+            index += PORT_FIELD_SIZE
+            node_id = int.from_bytes(payload[index:index + KEY_SIZE], byteorder='big')
+            index += KEY_SIZE
+            list_of_nodes.append(NodeTuple(ip, port, node_id))
+
+        print("Node contained:")
+        for node in list_of_nodes:
+            print(node)
+
+        return True
+
+    return False
+
 async def send_find_node(host: str, port: int, node_id: int, key: int):
     """
     This function is used to send a find request and to process the response
@@ -199,96 +294,83 @@ async def send_find_node(host: str, port: int, node_id: int, key: int):
     except Exception as e:
         print(f"Error while processing response: {e}")
 
-    """
-    Structure of body of FIND_NODE_RESP message
-    +-----------------+----------------+---------------+---------------+
-    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-    +-----------------+----------------+---------------+---------------+
-    |  RPC ID         |  0             |  15           |  16           |
-    +-----------------+----------------+---------------+---------------+
-    | nb_node_found   |  16            |  17           |  2            |
-    +-----------------+----------------+---------------+---------------+
-    | IP 1            |  18            |  -            |  4            |
-    +-----------------+----------------+---------------+---------------+
-    | port 1          |  -             |  -            |  2            |
-    +-----------------+----------------+---------------+---------------+
-    | node_id 1       |  -             |  -            |  32           |
-    +-----------------+----------------+---------------+---------------+
-    ...
-    +-----------------+----------------+---------------+---------------+
-    | IP n            |  -             |  -            |  4            |
-    +-----------------+----------------+---------------+---------------+
-    | port n          |  -             |  -            |  2            |
-    +-----------------+----------------+---------------+---------------+
-    | node_id n       |  -             |  -            |  32           |
-    +-----------------+----------------+---------------+---------------+
-
-    """
-
-    if message_type == Message.FIND_NODE_RESP and payload[:RPC_ID_FIELD_SIZE] == rpc_id:
-        index = RPC_ID_FIELD_SIZE
-        nb_node_found = int.from_bytes(payload[index:index+NUMBER_OF_NODES_FIELD_SIZE], byteorder='big')
-        index+=NUMBER_OF_NODES_FIELD_SIZE
-        list_of_nodes :list[NodeTuple] = []
-        for i in range(nb_node_found):
-            ip = socket.inet_ntoa(payload[index:index+IP_FIELD_SIZE])
-            index += IP_FIELD_SIZE
-            port = int.from_bytes(payload[index:index+PORT_FIELD_SIZE], byteorder='big')
-            index += PORT_FIELD_SIZE
-            node_id = int.from_bytes(payload[index:index+KEY_SIZE], byteorder='big')
-            index += KEY_SIZE
-            list_of_nodes.append(NodeTuple(ip, port, node_id))
-
-        print("Node contained:" )
-        for node in list_of_nodes:
-            print(node)
-
-
+    if await handle_find_node_resp(message_type, payload):
+        print("Find node successful")
     else:
         print("Find node failed")
-        return False
 
 
 
-async def send_store(host: str, port: int, node_id: int, key: int, ttl: int,  value: bytes)->bool:
+async def send_find_value(host: str, port: int, node_id: int, key: int)->bool:
     """
-    This function is used to send a store request
+    This function is used to send a find value request
     :param host: the recipient IP address
     :param port: the port of the recipient
     :param node_id: the node ID
     :param key: The key associated with the value.
-    :param ttl: The time-to-live of the value.
-    :param value: The value to be stored.
     :return: True if the operation was successful, False otherwise
     """
+
     """
-    Body of STORE request 
+    Body of FIND_VALUE request
     +-----------------+----------------+---------------+---------------+
     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
     +-----------------+----------------+---------------+---------------+
-    |  RPC ID         |  0             | 15            | 16            |
+    |  RPC ID         |  0             | 16            | 16            |
     +-----------------+----------------+---------------+---------------+
-    |  key            |  20            | 51            | 32            |
-    +-----------------+----------------+---------------+---------------+
-    |  TTL            |  52            | 53            |  2            |
-    +-----------------+----------------+---------------+---------------+
-    |  value          |  54            | end           |   variable    |
+    |  key            |  17            | 48            |  32           |
     +-----------------+----------------+---------------+---------------+
     """
 
     # Creation of the content of the request
     rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
 
-    content : bytes = rpc_id
-    content += int.to_bytes(key,32,  byteorder='big')
-    content += struct.pack(">H", ttl)
-    content += value
+    content: bytes = rpc_id
+    content += int.to_bytes(key, 32, byteorder='big')
 
-    if await send_message(Message.STORE, content, host, port, node_id, True) == "Message sent":
-        return True
-    else:
+    response: bytes = await send_message(Message.FIND_VALUE, content, host, port, node_id)
+
+    if not response:
+        print("FIND_VALUE request failed")
         return False
 
+    message_type: int = 0
+    payload: bytes = None
+
+    try:
+        message_type, payload = await process_response(response)
+
+    except Exception as e:
+        print(f"Error while processing response: {e}")
+
+    """
+    Body FIND_VALUE_RESP message
+    +-----------------+----------------+---------------+---------------+
+    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+    +-----------------+----------------+---------------+---------------+
+    |  RPC ID         |  0             |  15           |  16           |
+    +-----------------+----------------+---------------+---------------+
+    |  value          |  16            |  -            |  -            |
+    +-----------------+----------------+---------------+---------------+
+    """
+
+    if message_type == Message.FIND_VALUE_RESP:
+        if rpc_id == payload[:RPC_ID_FIELD_SIZE]:
+            print("Find value successful")
+            print(f"Value: {payload[RPC_ID_FIELD_SIZE:]}")
+            return True
+        else:
+            print("Find value request failed")
+            return False
+
+    if message_type == Message.FIND_NODE_RESP:
+        status : bool = await handle_find_node_resp(message_type, payload)
+        if status:
+            print("Find value request resulted in list of closest nodes")
+            return True
+        else:
+            print("Find value request failed")
+            return False
 
 
 

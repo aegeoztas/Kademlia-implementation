@@ -317,14 +317,14 @@ class KademliaHandler:
             writer.write(response)
             await writer.drain()
         except Exception as e:
-            print(f"[-] Failed to send DHT_FIND_NODE_RESP {e}")
+            print(f"[-] Failed to send FIND_NODE_RESP {e}")
             await bad_packet(reader, writer, data=response)
             return False
 
         # Get the address of the remote peer
         remote_address, remote_port = writer.get_extra_info("socket").getpeername()
 
-        print(f"[+] {remote_address}:{remote_port} <<< DHT_SUCCESS")
+        print(f"[+] {remote_address}:{remote_port} <<< FIND_NODE_RESP")
         return True
 
 
@@ -378,7 +378,83 @@ class KademliaHandler:
         return True
 
 
+    async def handle_find_value(self, reader, writer, request_body: bytes)->bool:
+        """
+        This method handle a find value message. It will either send the value back if it is present in the local
+        storage or the known k-closest nodes to the key if it is not
+        :param reader: The reader of the socket.
+        :param writer: The writer of the socket.
+        :param request_body: The body of the request.
+        :return: True if the operation was successful.
+        """
+        """
+        Structure of request body
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  RPC ID         |  0             | 16            | 16            |
+        +-----------------+----------------+---------------+---------------+
+        |  key            |  17            | 48            |  32           |
+        +-----------------+----------------+---------------+---------------+
+        """
+        if len(request_body) != RPC_ID_FIELD_SIZE + KEY_SIZE:
+            raise ValueError("Find value request body has invalid size")
 
+        # Extracting fields from request
+        index = 0
+        rpc_id: bytes = request_body[index:RPC_ID_FIELD_SIZE]
+        index += RPC_ID_FIELD_SIZE
+        key: int = int.from_bytes(request_body[index:index + KEY_SIZE], byteorder='big')
+
+        # Checking if the value is in the local storage
+
+        value : bytes = self.local_node.local_hash_table.get(key)
+
+        # If the value is present, we return it.
+        if value:
+
+            """
+            Structure of FIND_VALUE_RESP message
+            +-----------------+----------------+---------------+---------------+
+            |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+            +-----------------+----------------+---------------+---------------+
+            |  Size           |  0             |  1            |  2            |
+            +-----------------+----------------+---------------+---------------+
+            |  Message type   |  2             |  3            |  2            |
+            +-----------------+----------------+---------------+---------------+
+            |  RPC ID         |  4             |  19           |  16           |
+            +-----------------+----------------+---------------+---------------+
+            |  value          |  20            |  -            |  -            |
+            +-----------------+----------------+---------------+---------------+
+            """
+            # Constructing response message
+
+            # Header
+            message_size = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + RPC_ID_FIELD_SIZE + len(value)
+
+            response = struct.pack(">HH", message_size, Message.FIND_VALUE_RESP)
+            response += rpc_id
+            response += value
+
+            # Send the response
+            try:
+                writer.write(response)
+                await writer.drain()
+            except Exception as e:
+                print(f"[-] Failed to send FIND_VALUE_RESP {e}")
+                await bad_packet(reader, writer, data=response)
+                return False
+
+            # Get the address of the remote peer
+            remote_address, remote_port = writer.get_extra_info("socket").getpeername()
+
+            print(f"[+] {remote_address}:{remote_port} <<< FIND_VALUE_RESP")
+            return True
+
+        else:
+            # If the value is not present in the local storage, the list of known closest nodes to the key of the value
+            # is returned.
+            return await self.handle_find_value(reader, writer, request_body)
 
 
 

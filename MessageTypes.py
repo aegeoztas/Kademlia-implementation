@@ -17,7 +17,7 @@ class Message(IntEnum):
     STORE = int(os.getenv("STORE"))
     FIND_NODE = int(os.getenv("FIND_NODE"))
     FIND_NODE_RESP = int(os.getenv("FIND_NODE_RESP"))
-    FIND_VALUE_SUCCESS = int(os.getenv("FIND_VALUE_SUCCESS"))
+    FIND_VALUE_RESP = int(os.getenv("FIND_VALUE_RESP"))
     FIND_VALUE_FAILURE = int(os.getenv("FIND_VALUE_FAILURE"))
 
     PING_RESPONSE = int(os.getenv("PING_RESPONSE"))
