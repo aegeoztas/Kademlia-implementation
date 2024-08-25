@@ -8,7 +8,6 @@ from asyncio import StreamReader, StreamWriter
 from dotenv import load_dotenv
 from MessageTypes import Message
 from k_bucket import NodeTuple
-from kademlia_handler import PORT_FIELD_SIZE
 
 load_dotenv()
 
@@ -20,10 +19,11 @@ NUMBER_OF_NODES_FIELD_SIZE = int(os.getenv("NUMBER_OF_NODES_FIELD_SIZE"))
 KEY_SIZE =int(os.getenv("KEY_SIZE"))
 NB_OF_CLOSEST_PEERS = int(os.getenv("NB_OF_CLOSEST_PEERS"))
 IP_FIELD_SIZE = int(os.getenv("IP_FIELD_SIZE"))
+PORT_FIELD_SIZE = int(os.getenv("PORT_FIELD_SIZE"))
 
 
-
-async def send_message(message_type: int, payload: bytes, host: str, port: int, node_id: int):
+async def send_message(message_type: int, payload: bytes, host: str, port: int, node_id: int,
+                       no_response_expected: bool=False):
 
     # Declaration of reader and writer
     reader: StreamReader
@@ -39,6 +39,22 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int, 
         return None
 
     try:
+
+        """
+        Structure of sent message
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  Size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Message type   |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Node ID        |  4             |  35           |  32           |
+        +-----------------+----------------+---------------+---------------+
+        |  body           |  36            | -             | variable      |
+        +-----------------+----------------+---------------+---------------+
+        """
+
         # Determine the size of the message and create the size field
         size_of_message: int = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE +  len(
             payload)  # Total size including the size field
@@ -53,6 +69,9 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int, 
         # Send the full message to the server
         writer.write(full_message)
         await writer.drain()  # Ensure the message is sent
+
+        if no_response_expected:
+            return "Message sent"
 
         # Await response from the server
         response_size_bytes = await reader.read(SIZE_FIELD_SIZE)
@@ -101,18 +120,11 @@ async def send_ping(host: str, port: int, node_id: int):
     +-----------------+----------------+---------------+---------------+
     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
     +-----------------+----------------+---------------+---------------+
-    |  Size           |  0             |  1            |  2            |
+    |  RPC ID         |  0             | 15            | 16            |
     +-----------------+----------------+---------------+---------------+
-    |  Message type   |  2             |  3            |  2            |
-    +-----------------+----------------+---------------+---------------+
-    |  Node ID        |  4             |  35           |  32           |
-    +-----------------+----------------+---------------+---------------+
-    |  RPC ID         |  36            | 51           | 16            |
-    +-----------------+----------------+---------------+---------------+
-    
     """
 
-    rpc_id : bytes= secrets.token_bytes(16)
+    rpc_id : bytes= secrets.token_bytes(RPC_ID_FIELD_SIZE)
 
 
     response = await send_message(Message.PING, rpc_id, host, port, node_id)
@@ -131,6 +143,14 @@ async def send_ping(host: str, port: int, node_id: int):
     except Exception as e:
         print(f"Error while processing response: {e}")
 
+    """
+    Structure of body of PING_RESPONSE
+    +-----------------+----------------+---------------+---------------+
+    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+    +-----------------+----------------+---------------+---------------+
+    |  RPC ID         |  0             | 15            | 16            |
+    +-----------------+----------------+---------------+---------------+
+    """
     if message_type == Message.PING_RESPONSE and payload == rpc_id:
         print("Ping successful")
         return True
@@ -145,25 +165,22 @@ async def send_find_node(host: str, port: int, node_id: int, key: int):
     :param host: the recipient IP address
     :param port: the port of the recipient
     :param node_id: the node ID
+    :param key: the key to find the closest nodes to.
     :return: True if the response was valid.
     """
 
     """
-    Structure of request 
+    Body of FIND_NODE request 
     +-----------------+----------------+---------------+---------------+
     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
     +-----------------+----------------+---------------+---------------+
-    |  Size           |  0             |  1            |  2            |
+    |  RPC ID         |  0             | 15            | 16            |
     +-----------------+----------------+---------------+---------------+
-    |  Message type   |  2             |  3            |  2            |
-    +-----------------+----------------+---------------+---------------+
-    |  RPC ID         |  4             | 19            | 16            |
-    +-----------------+----------------+---------------+---------------+
-    |  key            |  20            | 48            | 51            |
+    |  key            |  16            | 46            | 32            |
     +-----------------+----------------+---------------+---------------+
     """
 
-    rpc_id: bytes = secrets.token_bytes(16)
+    rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
 
     content = rpc_id + int.to_bytes(key, 32, byteorder='big')
 
@@ -183,19 +200,15 @@ async def send_find_node(host: str, port: int, node_id: int, key: int):
         print(f"Error while processing response: {e}")
 
     """
-    Structure of FIND_NODE_RESP message
+    Structure of body of FIND_NODE_RESP message
     +-----------------+----------------+---------------+---------------+
     |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
     +-----------------+----------------+---------------+---------------+
-    |  Size           |  0             |  1            |  2            |
+    |  RPC ID         |  0             |  15           |  16           |
     +-----------------+----------------+---------------+---------------+
-    |  Message type   |  2             |  3            |  2            |
+    | nb_node_found   |  16            |  17           |  2            |
     +-----------------+----------------+---------------+---------------+
-    |  RPC ID         |  4             |  19           |  16           |
-    +-----------------+----------------+---------------+---------------+
-    | nb_node_found   |  20            |  21           |  2            |
-    +-----------------+----------------+---------------+---------------+
-    | IP 1            |  22             |  -           |  4            |
+    | IP 1            |  18            |  -            |  4            |
     +-----------------+----------------+---------------+---------------+
     | port 1          |  -             |  -            |  2            |
     +-----------------+----------------+---------------+---------------+
@@ -236,6 +249,49 @@ async def send_find_node(host: str, port: int, node_id: int, key: int):
         return False
 
 
+
+async def send_store(host: str, port: int, node_id: int, key: int, ttl: int,  value: bytes)->bool:
+    """
+    This function is used to send a store request
+    :param host: the recipient IP address
+    :param port: the port of the recipient
+    :param node_id: the node ID
+    :param key: The key associated with the value.
+    :param ttl: The time-to-live of the value.
+    :param value: The value to be stored.
+    :return: True if the operation was successful, False otherwise
+    """
+    """
+    Body of STORE request 
+    +-----------------+----------------+---------------+---------------+
+    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+    +-----------------+----------------+---------------+---------------+
+    |  RPC ID         |  0             | 15            | 16            |
+    +-----------------+----------------+---------------+---------------+
+    |  key            |  20            | 51            | 32            |
+    +-----------------+----------------+---------------+---------------+
+    |  TTL            |  52            | 53            |  2            |
+    +-----------------+----------------+---------------+---------------+
+    |  value          |  54            | end           |   variable    |
+    +-----------------+----------------+---------------+---------------+
+    """
+
+    # Creation of the content of the request
+    rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
+
+    content : bytes = rpc_id
+    content += int.to_bytes(key,32,  byteorder='big')
+    content += struct.pack(">H", ttl)
+    content += value
+
+    if await send_message(Message.STORE, content, host, port, node_id, True) == "Message sent":
+        return True
+    else:
+        return False
+
+
+
+
 if __name__ == "__main__":
     # Example usage
     # message_type = 56 # Example message type
@@ -248,6 +304,7 @@ if __name__ == "__main__":
     asyncio.run(send_ping(remote_ip, remote_port, 55))
 
     asyncio.run(send_find_node(remote_ip, remote_port, 55, 0))
+    asyncio.run(send_store(remote_ip, remote_port, 55, 658432, 400, b"Hello World"))
 
 
 

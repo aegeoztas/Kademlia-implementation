@@ -20,6 +20,7 @@ IP_FIELD_SIZE = int(os.getenv("IP_FIELD_SIZE"))
 PORT_FIELD_SIZE = int(os.getenv("PORT_FIELD_SIZE"))
 RPC_ID_FIELD_SIZE = int(os.getenv("RPC_ID_FIELD_SIZE"))
 NUMBER_OF_NODES_FIELD_SIZE = int(os.getenv("NUMBER_OF_NODES_FIELD_SIZE"))
+TTL_FIELD_SIZE = int(os.getenv("TTL_FIELD_SIZE"))
 
 # Global variables
 NB_OF_CLOSEST_PEERS = int(os.getenv("NB_OF_CLOSEST_PEERS"))
@@ -29,7 +30,7 @@ ALPHA = os.getenv("ALPHA")
 TIMEOUT = os.getenv("TIMEOUT")
 MAXREPLICATION = os.getenv("MAX_REPLICATION")
 TLL_SIZE =   os.getenv("TLL_SIZE")
-MAXTTL = os.getenv("MAX_TTL")
+MAXTTL = int(os.getenv("MAX_TTL"))
 REPLICATION_SIZE = os.getenv("REPLICATION_SIZE")
 
 # TODO implment echo
@@ -96,31 +97,15 @@ class KademliaHandler:
 
                 # Kademlia specific messages
                 case Message.PING:
-
-                    """
-                    Body of PING
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                    |  RPC ID         |  0             | 16            | 16            |
-                    +-----------------+----------------+---------------+---------------+
-                    """
                     #TODO add try catch
                     return_status = await self.handle_ping_request(reader, writer, body)
 
                 case Message.FIND_NODE:
-                    """
-                    Body of FIND_NODE
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                    |  RPC ID         |  0             | 16            | 16            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  key            |  17            | 48            |  32           |
-                    +-----------------+----------------+---------------+---------------+
-                    """
+
                     return_status = await self.handle_find_nodes_request(reader, writer, body)
 
+                case Message.STORE:
+                    return_status = await self.handle_store_request(reader, writer, body)
                 case _:
                     await bad_packet(reader, writer,
                                      f"Unknown message type {message_type} received",
@@ -343,6 +328,89 @@ class KademliaHandler:
         return True
 
 
+    async def handle_store_request(self, reader, writer, request_body: bytes):
+        """
+        This method handle a store message. If this function is called, this node has been designated to store a value.
+        The node must then store the value in its storage.
+        :param reader: The reader of the socket.
+        :param writer: The writer of the socket.
+        :param request_body: The body of the request.
+        :return: True if the operation was successful.
+        """
+
+        """
+        Structure of request body
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  RPC ID         |  0             | 16            | 16            |
+        +-----------------+----------------+---------------+---------------+
+        |  key            |  17            | 48            |  32           |
+        +-----------------+----------------+---------------+---------------+
+        |  TTL            |  49            | 51            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  value          |  52            | end           |   variable    |
+        +-----------------+----------------+---------------+---------------+
+        """
+
+        if len(request_body) < RPC_ID_FIELD_SIZE + KEY_SIZE + TTL_FIELD_SIZE:
+            raise ValueError("STORE request body has invalid size")
+
+        # Extracting fields from request
+        index=0
+        rpc_id : bytes = request_body[index:RPC_ID_FIELD_SIZE]
+        index+=RPC_ID_FIELD_SIZE
+        key : int = int.from_bytes(request_body[index:index+KEY_SIZE], byteorder='big')
+        index+=KEY_SIZE
+        ttl: int = int.from_bytes(request_body[index:index+TTL_FIELD_SIZE], byteorder='big')
+        index+=TTL_FIELD_SIZE
+        value : bytes = request_body[index:]
+
+        # If the ttl is 0, the request is dropped.
+        if ttl <=  0:
+            return False
+        elif ttl > MAXTTL:
+            ttl = MAXTTL
+
+        # Store the value in the local storage
+        self.local_node.local_hash_table.put(key, value, ttl)
+
+        return True
+
+
+
+
+
+
+    # async def handle_store_request(self, replication: int, ttl: int, key: int, value: bytes):
+    #     """
+    #     This function handles a store message. If this function is called, this node has been designated to store a value.
+    #     It must then store the value in its storage.
+    #     :param reader: The reader of the socket.
+    #     :param replication: the number of times that this key,value pair should be replicated through the network.
+    #     :param ttl: The time to live of the value to be stored.
+    #     :param key: The 256 bit key associated to the value.
+    #     :param value: The value to be stored.
+    #     :return: True if the operation was successful.
+    #     """
+    #     if ttl == 0:
+    #         # it is forbiden to have 0 ttl so we drop the request
+    #         return False
+    #     elif ttl> MAXTTL:
+    #         ttl = MAXTTL
+    #
+    #     self.local_node.local_hash_table.put(key, value, ttl)
+    #
+    #     if replication == 0:
+    #         return True
+    #     elif replication > MAXREPLICATION:
+    #         replication = MAXREPLICATION
+    #         #here the replication is only a hint and too much of it can be bad.
+    #         # so we set cap on it.
+    #     self.republish_store_request(replication,ttl,key,value)
+    #     return True
+
+
 #
 #     async def republish_store_request(self, replication: int, ttl: int, key: int, value: bytes):
 #         """
@@ -374,33 +442,8 @@ class KademliaHandler:
 #                     rep_to_send = base_rep
 #
 #                 tasks.append(self.send_store_message(node, rep_to_send, ttl, key, value))
-#     async def handle_store_request(self, replication: int, ttl: int, key: int, value: bytes):
-#         """
-#         This function handles a store message. If this function is called, this node has been designated to store a value.
-#         It must then store the value in its storage.
-#         :param reader: The reader of the socket.
-#         :param replication: the number of times that this key,value pair should be replicated through the network.
-#         :param ttl: The time to live of the value to be stored.
-#         :param key: The 256 bit key associated to the value.
-#         :param value: The value to be stored.
-#         :return: True if the operation was successful.
-#         """
-#         if ttl == 0:
-#             # it is forbiden to have 0 ttl so we drop the request
-#             return False
-#         elif ttl> MAXTTL:
-#             ttl = MAXTTL
 #
-#         self.local_node.local_hash_table.put(key, value, ttl)
-#
-#         if replication == 0:
-#             return True
-#         elif replication > MAXREPLICATION:
-#             replication = MAXREPLICATION
-#             #here the replication is only a hint and too much of it can be bad.
-#             # so we set cap on it.
-#         self.republish_store_request(replication,ttl,key,value)
-#         return True
+
 #     async def handle_find_value_request(self, reader, writer, key: int):
 #         """
 #         This function finds if it has the key asked.
