@@ -71,6 +71,7 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int, 
         writer.write(full_message)
         await writer.drain()  # Ensure the message is sent
 
+
         if no_response_expected:
             return "Message sent"
 
@@ -79,6 +80,7 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int, 
         response_size: int = struct.unpack(">H", response_size_bytes)[0]
         response = await reader.read(response_size)
         full_response = response_size_bytes + response
+
 
     except Exception as e:
         print(f"Error while sending or receiving message: {e}")
