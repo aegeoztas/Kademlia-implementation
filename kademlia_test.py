@@ -17,7 +17,10 @@ async def main():
 
     local_node.routing_table.update_table(TARGET_IP, TARGET_PORT, 4444)
 
-    print(await kademlia_service.find_closest_nodes_in_network(0))
+    result = await kademlia_service.find_closest_nodes_in_network(0)
+
+    for elem in result:
+        print(elem)
 
 
 if __name__ == "__main__":

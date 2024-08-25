@@ -57,6 +57,13 @@ class NodeTuple:
         """
         return f"Node Tuple information [ Node ID: {self.node_id}, port: {self.port}, IP: {self.ip_address} ]"
 
+    def __hash__(self):
+        """
+        Override of the method __hash__.
+        :return: a hash of the NodeTuple.
+        """
+        return hash(self.node_id)
+
     def key_distance_to(self, key: int) -> int:
         """
         This method returns the xor distance (int) between the id of the peer and the key passed in parameters.
