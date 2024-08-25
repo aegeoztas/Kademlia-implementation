@@ -58,6 +58,21 @@ async def start_kademlia_server(handler):
     print(f"Kademlia Server started on port {KADEMLIA_PORT}...")
     async with server:
         await server.serve_forever()
+
+async def start_servers():
+    server_node =  LocalNode( '127.0.0.1', DHT_PORT)
+    #dht_node =  LocalNode( '127.0.0.1', DHT_PORT)
+    #kademlia_node = LocalNode( '127.0.0.1', KADEMLIA_PORT)
+    kademlia_handler = KademliaHandler(server_node)
+    dht_handler = DHT_APIHandler(server_node, kademlia_handler)
+    yield server_node
+
+    await asyncio.gather(
+        start_dht_server(dht_handler),
+        start_kademlia_server(kademlia_handler)
+    )
+
+
 async def main():
     dht_node =  LocalNode( '127.0.0.1', DHT_PORT)
     kademlia_node = LocalNode( '127.0.0.1', KADEMLIA_PORT)

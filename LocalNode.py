@@ -15,7 +15,7 @@ class LocalNode:
     def __init__(self, ip : str, port: int, host_key:bytes = None):
         self.ip: str = ip
         self.port: int = port
-
+        self.k_port: int = port+1
         if host_key is None:
             host_key = self.generate_random_rsa_key()
         # Creation of the node ID. The node ID is the SHA256 hash of the host key (public key).

@@ -43,7 +43,6 @@ PINGS can also be piggy backed on RPC replies for RPC recipient to obtain additi
 
 
 
-
 class KademliaHandler:
     """
     This class is for handlig the API calls for the
@@ -259,7 +258,7 @@ class KademliaHandler:
             # so we set cap on it.
         self.republish_store_request(replication,ttl,key,value)
         return True
-    async def handle_find_value_request(self, reader, writer, key: int):
+    async def handle_find_value_request(self, reader, writer, key: int, from_api = False):
         """
         This function finds if it has the key asked.
         if not returns to the sender the k closest nodes to the key,that is located in its routing table.
@@ -304,13 +303,29 @@ class KademliaHandler:
             try:
                 writer.write(response)
                 await writer.drain()
+                return True
             except Exception as e:
                 print(f"[-] Failed to send FIND_VALUE_SUCCESS {e}")
                 await bad_packet(reader, writer, data=response)
                 return False
-        else:
+        elif from_api:
+            message_size = int(SIZE_FIELD_SIZE
+                               + MESSAGE_TYPE_FIELD_SIZE
+                               + sys.getsizeof(value))
+            header = struct.pack(">HH", message_size, Message.FIND_VALUE_FAILURE) #same as dht fail
+            body = key.to_bytes(KEY_SIZE, byteorder="big")
+            response = header + body
+            try:
+                writer.write(response)
+                await writer.drain()
+                return False
+            except Exception as e:
+                print(f"[-] Failed to send FIND_VALUE_SUCCESS {e}")
+                await bad_packet(reader, writer, data=response)
+                return False
             # else this acts as handle_find_nodes_request
-
+        else:
+            # if this is from kademlia handler continue to hanle find nodes.
             return self.handle_find_nodes_request(reader,writer,key)
 
     async def handle_find_nodes_request(self, reader, writer, key: int):
@@ -661,7 +676,7 @@ class DHTHandler:
     reaching the local node and using DHT API
     """
 
-    def __init__(self, local_node: LocalNode, kademlia_handler: KademliaHandler):
+    def __init__(self, kademlia_handler: KademliaHandler):
         # self.local_node: LocalNode = local_node
         # it doesn't make sense for dht handler to have it's own local node
         self.k_handler = kademlia_handler
@@ -764,25 +779,20 @@ class DHTHandler:
         remote_address, remote_port = writer.get_extra_info("socket").getpeername()
 
         # Check if the value is in the local storage
-        value = self.local_node.local_hash_table.get(key)
+        from_api = True # we are sending from dht api
+        # so needs to return a failiure message isntead of list of nodes.
+        find_value_response = await self.k_handler.handle_find_value_request(reader, writer, key, from_api)
+        # this way as we pass the reader / writer this will be handled on kademlia interface
+        # kademlia handler will act as it got FIND_VALUE request
+        # if it finds the value it returns true and sends the key value pair back to the passed reader/writer
+        # as we use same message types for dht_get-find_value and their respective success failure responses
+        # it will be seamless
+        # if it can't find it, it will return kbucket of closest nodes.
 
-        # If the value is not in the local storage, we have to get it from the Kademlia network from the other peers.
-        if value is None:
-
-            # needs to send a kademlia get message.
-            # better to start working there
-            find_value_response = await self.k_handler.handle_find_value_request(reader, writer, key)
-            # this way as we pass the reader / writer this will be handled on kademlia interface
-            # kademlia handler will act as it got FIND_VALUE request
-            # if it finds the value it returns true and sends the key value pair back to the passed reader/writer
-            # as we use same message types for dht_get-find_value and their respective success failure responses
-            # it will be seamless
-            # if it can't find it, it will return kbucket of closest nodes.
-
-            if find_value_response == True:
-                return True
-            else:
-                return False
+        if find_value_response == True:
+            return True
+        else:
+            return False
 
     async def handle_put_request(self, reader: StreamReader, writer: StreamWriter, ttl: int, replication: int, key: int,
                                  value: bytes):
