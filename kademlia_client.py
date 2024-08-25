@@ -192,7 +192,7 @@ async def handle_find_node_resp(message_type: int, payload: bytes, rpc_id: bytes
     This function is used to handle a find_node_resp
     :param message_type: the message type, should be FIND_NODE_RESP
     :param payload: the payload of the message
-     :param rpc_id: The rpc_id of the request
+    :param rpc_id: The rpc_id of the request
     :return: true if the operation was successful, false otherwise
     """
 

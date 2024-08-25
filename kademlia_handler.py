@@ -38,17 +38,26 @@ class KademliaHandler:
         +-----------------+----------------+---------------+---------------+
         |  Node ID        |  4             |  35           |  32           |
         +-----------------+----------------+---------------+---------------+
-        |  Body           |  36             | end          | Size - 36     |
+        |  IP handler     |  36            | 39            | 4             |
+        +-----------------+----------------+---------------+---------------+
+        |  Port handler   |  40            | 41            | 2             |
+        +-----------------+----------------+---------------+---------------+
+        |  Body           |  42            | end           | -             |
         +-----------------+----------------+---------------+---------------+
         """
-        # Extracting header, node id and body of the message
-        header = buf[:SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE]
-        node_id_bytes = buf[SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE: SIZE_FIELD_SIZE +
-                                                                       MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE]
-        body = buf[SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE:]
-
-        # Extracting the message type
-        message_type = struct.unpack(">H", header[2:4])[0]
+        # Extracting the fields
+        index=0
+        size: int = int(struct.unpack(">H", buf[index:SIZE_FIELD_SIZE])[0])
+        index+=SIZE_FIELD_SIZE
+        message_type: int = int(struct.unpack(">H", buf[index:index+MESSAGE_TYPE_FIELD_SIZE])[0])
+        index+=MESSAGE_TYPE_FIELD_SIZE
+        node_id: int = int.from_bytes(buf[index:index+KEY_SIZE])
+        index+=KEY_SIZE
+        ip_handler: str = socket.inet_ntoa(buf[index:index + IP_FIELD_SIZE])
+        index+=IP_FIELD_SIZE
+        port_handler: int = int.from_bytes(buf[index:index + PORT_FIELD_SIZE])
+        index+=PORT_FIELD_SIZE
+        body: bytes = buf[index:]
 
         return_status = False
 
@@ -69,18 +78,16 @@ class KademliaHandler:
                 case _:
                     await bad_packet(reader, writer,
                                      f"Unknown message type {message_type} received",
-                                     header)
+                                     buf)
 
         except Exception as e:
             await bad_packet(reader, writer, f"Wrongly formatted message", buf)
 
         # If the operation was successful we update our routing table with the information of the remote peer.
         if return_status:
-            remote_address, remote_port = writer.get_extra_info("socket").getpeername()
-            node_id = int.from_bytes(node_id_bytes, "big")
 
             async with self.local_node.routing_table_lock:
-                self.local_node.routing_table.update_table(remote_address, remote_port, node_id)
+                self.local_node.routing_table.update_table(ip_handler, port_handler, node_id)
 
         return return_status
 
@@ -88,6 +95,7 @@ class KademliaHandler:
     async def handle_ping_request(self, reader, writer, request_body: bytes):
         """
         This function handles a ping message. It will just send a pong response.
+        :param self:
         :param reader: The reader of the socket.
         :param writer: The writer of the socket.
         :param request_body: The body of the ping message.
@@ -145,6 +153,7 @@ class KademliaHandler:
         """
         This method handle a store message. If this function is called, this node has been designated to store a value.
         The node must then store the value in its storage.
+        :param self:
         :param reader: The reader of the socket.
         :param writer: The writer of the socket.
         :param request_body: The body of the request.
@@ -195,6 +204,7 @@ class KademliaHandler:
         """
         This method handle a find_node request. The local node will send back the k known closest known to the key
         present in the message.
+        :param self:
         :param reader: The reader of the socket.
         :param writer: The writer of the socket.
         :param request_body: The body of the find_node request.
@@ -297,6 +307,7 @@ class KademliaHandler:
         """
         This method handle a find value message. It will either send the value back if it is present in the local
         storage or the known k-closest nodes to the key if it is not
+        :param self:
         :param reader: The reader of the socket.
         :param writer: The writer of the socket.
         :param request_body: The body of the request.
@@ -370,6 +381,3 @@ class KademliaHandler:
             # If the value is not present in the local storage, the list of known closest nodes to the key of the value
             # is returned.
             return await self.handle_find_value_request(reader, writer, request_body)
-
-
-
