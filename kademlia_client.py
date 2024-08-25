@@ -6,7 +6,7 @@ import socket
 import sys
 from asyncio import StreamReader, StreamWriter
 from dotenv import load_dotenv
-from MessageTypes import Message
+from Constants import Message
 from k_bucket import NodeTuple
 
 load_dotenv()

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from LocalNode import LocalNode
 from kademlia_handler import KademliaHandler
+from kademlia_service import KademliaService
 
 load_dotenv()
 
@@ -30,7 +31,7 @@ async def handle_connection(reader: StreamReader, writer: StreamWriter, handler:
         full_message = size_field + buf
 
         # Handle the message request
-        await handler.handle_message(full_message, reader, writer)
+        await handler.handle_request(full_message, reader, writer)
     except Exception as e:
         print(f"Error handling connection: {e}")
     finally:
@@ -42,6 +43,8 @@ async def main():
     local_node: LocalNode = LocalNode(IP, PORT, HOST_KEY_PEM)
 
     kademlia_handler : KademliaHandler= KademliaHandler(local_node)
+
+    kademlia_service : KademliaService = KademliaService(local_node)
 
     server = await asyncio.start_server(
         lambda reader, writer: handle_connection(reader, writer, kademlia_handler),  # Pass the handler to the connection
