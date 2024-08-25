@@ -3,11 +3,10 @@ import os
 from asyncio import StreamReader, StreamWriter
 
 from LocalNode import LocalNode
-from dht_api_handler import DHT_APIHandler
 
 from dotenv import load_dotenv
 
-from kademlia_handler import KademliaHandler
+from kademlia_handler import KademliaHandler, DHTHandler
 
 load_dotenv()
 
@@ -64,7 +63,7 @@ async def start_servers():
     #dht_node =  LocalNode( '127.0.0.1', DHT_PORT)
     #kademlia_node = LocalNode( '127.0.0.1', KADEMLIA_PORT)
     kademlia_handler = KademliaHandler(server_node)
-    dht_handler = DHT_APIHandler(server_node, kademlia_handler)
+    dht_handler = DHTHandler(kademlia_handler)
     yield server_node
 
     await asyncio.gather(
@@ -77,7 +76,7 @@ async def main():
     dht_node =  LocalNode( '127.0.0.1', DHT_PORT)
     kademlia_node = LocalNode( '127.0.0.1', KADEMLIA_PORT)
     kademlia_handler = KademliaHandler(kademlia_node)
-    dht_handler = DHT_APIHandler(dht_node, kademlia_handler)
+    dht_handler = DHTHandler(kademlia_handler)
 
 
     await asyncio.gather(
