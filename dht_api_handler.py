@@ -3,7 +3,7 @@ from Constants import *
 from kademlia_service import KademliaService
 from asyncio import StreamReader, StreamWriter
 from LocalNode import LocalNode
-from util import bad_packet
+from bad_packet import bad_packet
 
 
 class DHTHandler:
@@ -199,14 +199,17 @@ class DHTHandler:
         +-----------------+----------------+---------------+---------------+
         |  value          |  36            |  end          |  variable     |
         +-----------------+----------------+---------------+---------------+
-        
         """
-        ttl: int = int.from_bytes(struct.pack(">H", body[0:2]))
-        replication: int = body[2]
-        key: int = int.from_bytes(body[4:4 + KEY_SIZE - 1], byteorder="big")
-        value: bytes = body[260:]
+        # Extracting fields
+        index=0
+        ttl: int = int.from_bytes(body[index:index+TTL_FIELD_SIZE])
+        index+=TTL_FIELD_SIZE
+        replication: int = int.from_bytes(body[index:index+REPLICATION_FIELD_SIZE])
+        index+=REPLICATION_FIELD_SIZE
+        index+= RESERVED_FIELD_SIZE
+        key: int = int.from_bytes(body[index:index+KEY_SIZE])
+        index+=KEY_SIZE
+        value: bytes = body[index:]
 
-
-
-        return_value = self.k_handler.handle_store_request(reader=reader, writer =writer, ttl=ttl,replication=replication,key=key,value=value)
-        return return_value
+        # Storing the value in the network
+        return await self.kademlia_service.store_value_in_network(key, ttl, value)

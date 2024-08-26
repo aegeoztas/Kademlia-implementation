@@ -7,7 +7,7 @@ import asyncio
 import xor_distance
 from LocalNode import LocalNode
 from k_bucket import NodeTuple, ComparableNodeTuple
-from util import *
+from bad_packet import *
 from asyncio.streams import StreamReader, StreamWriter
 from Constants import *
 from xor_distance import key_distance
