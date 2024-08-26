@@ -3,24 +3,23 @@ import os
 from asyncio import StreamReader, StreamWriter
 
 from LocalNode import LocalNode
-from kademlia_handler import KademliaHandler
 from kademlia_service import KademliaService
 from Constants import *
-from dht_api_handler import DHTHandler
+from handler import Handler, KademliaHandler, DHTHandler
 
 # TODO Load from Windows INI configuration file
 
 HOST_KEY_PEM = "123456789"
 
 KADEMLIA_IP = "127.0.0.1"
-DHT_API_ip = "127.0.0.1"
+DHT_API_IP = "127.0.0.1"
 
 KADEMLIA_PORT = 8889
 DHT_API_PORT = 8890
 
 
 
-async def handle_connection(reader: StreamReader, writer: StreamWriter, handler: KademliaHandler):
+async def handle_connection(reader: StreamReader, writer: StreamWriter, handler: Handler):
 
     try:
         # Server read first two bytes to get size of message
@@ -41,16 +40,25 @@ async def handle_connection(reader: StreamReader, writer: StreamWriter, handler:
         await writer.wait_closed()
 
 
-async def start_kademlia_server(handler):
+async def start_kademlia_server(kademlia_handler: KademliaHandler):
     server = await asyncio.start_server(
-        lambda reader, writer: handle_connection(reader, writer, handler),
-        '127.0.0.1',  # Address to listen on
+        lambda reader, writer: handle_connection(reader, writer, kademlia_handler),
+        KADEMLIA_IP,  # Address to listen on
         KADEMLIA_PORT  # Port to listen on
     )
-    print(f"Kademlia Server started on port {KADEMLIA_PORT}...")
+    print(f"Kademlia Server started on IP: {KADEMLIA_IP} and port {KADEMLIA_PORT}...")
     async with server:
         await server.serve_forever()
 
+async def start_dht_api_server(dht_handler: DHTHandler):
+    server = await asyncio.start_server(
+        lambda reader, writer: handle_connection(reader, writer, dht_handler),
+        DHT_API_IP,  # Address to listen on
+        DHT_API_PORT  # Port to listen on
+    )
+    print(f"DHT API Server started on IP: {DHT_API_IP} and port {KADEMLIA_PORT}...")
+    async with server:
+        await server.serve_forever()
 
 
 async def main():
