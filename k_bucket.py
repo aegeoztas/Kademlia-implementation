@@ -179,3 +179,17 @@ class KBucket:
 
         return value
 
+class ComparableNodeTuple:
+    # This class is used to compare two NodeTuple. A NodeTuple with a smaller distance to a specific key
+    # is considered greater than the other with a bigger distance.
+
+    def __init__(self, node_tuple: NodeTuple, reference_key: int):
+        self.nodeTuple: NodeTuple = node_tuple
+        self.reference_key: int = reference_key
+
+    def __lt__(self, other):
+        # Nodes are compared with distance
+
+        return key_distance(self.nodeTuple.node_id, self.reference_key) < key_distance(other.nodeTuple.node_id,
+                                                                                       self.reference_key)
+

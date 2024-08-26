@@ -12,7 +12,7 @@ from k_bucket import NodeTuple
 
 from Constants import *
 
-async def send_message(message_type: int, payload: bytes, host: str, port: int, node_id: int,
+async def send_message(message_type: int, payload: bytes, host: str, port: int,
                        no_response_expected: bool=False):
 
     # Declaration of reader and writer
@@ -109,7 +109,7 @@ async def process_response(message: bytes):
     return message_type, payload
 
 
-async def send_ping(host: str, port: int, node_id: int):
+async def send_ping(host: str, port: int):
     """
     This function is used to send a ping request and to process the response
     :param host: the recipient IP address
@@ -130,7 +130,7 @@ async def send_ping(host: str, port: int, node_id: int):
     rpc_id : bytes= secrets.token_bytes(RPC_ID_FIELD_SIZE)
 
 
-    response = await send_message(Message.PING, rpc_id, host, port, node_id)
+    response = await send_message(Message.PING, rpc_id, host, port)
 
     if not response:
         print("Ping failed")
@@ -162,12 +162,11 @@ async def send_ping(host: str, port: int, node_id: int):
         print("Ping failed")
         return False
 
-async def send_store(host: str, port: int, node_id: int, key: int, ttl: int,  value: bytes)->bool:
+async def send_store(host: str, port: int, key: int, ttl: int,  value: bytes)->bool:
     """
     This function is used to send a store request
     :param host: the recipient IP address
     :param port: the port of the recipient
-    :param node_id: the node ID
     :param key: The key associated with the value.
     :param ttl: The time-to-live of the value.
     :param value: The value to be stored.
@@ -196,7 +195,7 @@ async def send_store(host: str, port: int, node_id: int, key: int, ttl: int,  va
     content += struct.pack(">H", ttl)
     content += value
 
-    if await send_message(Message.STORE, content, host, port, node_id, True) == "Message sent":
+    if await send_message(Message.STORE, content, host, port, True) == "Message sent":
         return True
     else:
         return False
@@ -258,12 +257,11 @@ async def handle_find_node_resp(message_type: int, payload: bytes, rpc_id: bytes
 
     return False
 
-async def send_find_node(host: str, port: int, node_id: int, key: int):
+async def send_find_node(host: str, port: int, key: int):
     """
     This function is used to send a find request and to process the response
     :param host: the recipient IP address
     :param port: the port of the recipient
-    :param node_id: the node ID
     :param key: the key to find the closest nodes to.
     :return: True if the response was valid.
     """
@@ -283,7 +281,7 @@ async def send_find_node(host: str, port: int, node_id: int, key: int):
 
     content = rpc_id + int.to_bytes(key, 32, byteorder='big')
 
-    response = await send_message(Message.FIND_NODE, content, host, port, node_id)
+    response = await send_message(Message.FIND_NODE, content, host, port)
 
     if not response:
         print("Find node failed")
@@ -305,12 +303,11 @@ async def send_find_node(host: str, port: int, node_id: int, key: int):
 
 
 
-async def send_find_value(host: str, port: int, node_id: int, key: int)->bool:
+async def send_find_value(host: str, port: int, key: int)->bool:
     """
     This function is used to send a find value request
     :param host: the recipient IP address
     :param port: the port of the recipient
-    :param node_id: the node ID
     :param key: The key associated with the value.
     :return: True if the operation was successful, False otherwise
     """
@@ -332,7 +329,7 @@ async def send_find_value(host: str, port: int, node_id: int, key: int)->bool:
     content: bytes = rpc_id
     content += int.to_bytes(key, 32, byteorder='big')
 
-    response: bytes = await send_message(Message.FIND_VALUE, content, host, port, node_id)
+    response: bytes = await send_message(Message.FIND_VALUE, content, host, port)
 
     if not response:
         print("FIND_VALUE request failed")
