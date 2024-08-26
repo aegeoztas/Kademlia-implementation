@@ -1,22 +1,23 @@
 import asyncio
 import os
 from asyncio import StreamReader, StreamWriter
-from dotenv import load_dotenv
 
 from LocalNode import LocalNode
 from kademlia_handler import KademliaHandler
 from kademlia_service import KademliaService
-
-load_dotenv()
-
-# Global variable
-SIZE_FIELD_SIZE = int(os.getenv("SIZE_FIELD_SIZE"))
-MESSAGE_TYPE_FIELD_SIZE = int(os.getenv("MESSAGE_TYPE_FIELD_SIZE"))
+from Constants import *
+from dht_api_handler import DHTHandler
 
 # TODO Load from Windows INI configuration file
-IP = "127.0.0.1"
-PORT = 8888
+
 HOST_KEY_PEM = "123456789"
+
+KADEMLIA_IP = "127.0.0.1"
+DHT_API_ip = "127.0.0.1"
+
+KADEMLIA_PORT = 8889
+DHT_API_PORT = 8890
+
 
 
 async def handle_connection(reader: StreamReader, writer: StreamWriter, handler: KademliaHandler):
@@ -39,6 +40,50 @@ async def handle_connection(reader: StreamReader, writer: StreamWriter, handler:
         writer.close()
         await writer.wait_closed()
 
+
+async def start_kademlia_server(handler):
+    server = await asyncio.start_server(
+        lambda reader, writer: handle_connection(reader, writer, handler),
+        '127.0.0.1',  # Address to listen on
+        KADEMLIA_PORT  # Port to listen on
+    )
+    print(f"Kademlia Server started on port {KADEMLIA_PORT}...")
+    async with server:
+        await server.serve_forever()
+
+
+
+async def main():
+
+    # Creation of the local node that contains all the functionalities of a peer.
+    local_node: LocalNode = LocalNode(KADEMLIA_IP, KADEMLIA_PORT, HOST_KEY_PEM)
+
+    # Creation of the kademlia handler that handle requests from the kademlia network.
+    kademlia_handler = KademliaHandler(local_node)
+
+    # Creation of the dht handler that handle requests from other VoidIP modules
+    dht_handler = DHTHandler(kademlia_handler)
+    yield server_node
+
+    await asyncio.gather(
+        start_dht_server(dht_handler),
+        start_kademlia_server(kademlia_handler)
+
+
+
+
+    dht_node =  LocalNode( '127.0.0.1', DHT_PORT)
+    kademlia_node = LocalNode( '127.0.0.1', KADEMLIA_PORT)
+    kademlia_handler = KademliaHandler(kademlia_node)
+    dht_handler = DHTHandler(kademlia_handler)
+
+
+    await asyncio.gather(
+        start_dht_server(dht_handler),
+        start_kademlia_server(kademlia_handler)
+    )
+
+
 async def main():
 
     local_node: LocalNode = LocalNode(IP, PORT, HOST_KEY_PEM)
@@ -57,6 +102,7 @@ async def main():
 
     async with server:
         await server.serve_forever()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

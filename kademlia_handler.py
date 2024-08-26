@@ -1,5 +1,5 @@
-from sys import byteorder
-
+import socket
+import struct
 from LocalNode import LocalNode
 from k_bucket import NodeTuple
 from util import *

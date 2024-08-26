@@ -1,19 +1,21 @@
+import struct
+from Constants import *
+from kademlia_service import KademliaService
+from asyncio import StreamReader, StreamWriter
+from LocalNode import LocalNode
+from util import bad_packet
+
+
 class DHTHandler:
     """
     The role of this class is to handle incoming messages that are
     reaching the local node and using DHT API
     """
 
-    def __init__(self, local_node: LocalNode, kademlia_handler: KademliaHandler):
-        # self.local_node: LocalNode = local_node
-        # it doesn't make sense for dht handler to have it's own local node
-        self.k_handler = kademlia_handler
-        """
+    def __init__(self, local_node: LocalNode, kademlia_service: KademliaService):
+        self.local_node = local_node
+        self.kademlia_service = kademlia_service
 
-        Constructor
-        :param local_node: A LocalNode object used to get access to the routing table and the local storage
-
-        """
 
     async def handle_message(self, buf: bytes, reader: StreamReader, writer: StreamWriter):
         """
@@ -36,109 +38,175 @@ class DHTHandler:
         |  Body           |  3             | end           | Size -4       |
         +-----------------+----------------+---------------+---------------+
         """
-        # Extracting header and body of the message
-        header = buf[:4]
-        body = buf[4:]
-
-        # Extracting the message type
-        message_type = struct.unpack(">HH", header[2:4])
+        # Extracting fields
+        index = 0
+        size: int = int.from_bytes(buf[index:index+SIZE_FIELD_SIZE], byteorder='big')
+        index += SIZE_FIELD_SIZE
+        message_type: int = int.from_bytes(buf[index:index+MESSAGE_TYPE_FIELD_SIZE], byteorder='big')
+        index += MESSAGE_TYPE_FIELD_SIZE
+        body: bytes = buf[index:]
 
         return_status = False
 
         # A specific handler is called depending on the message type.
         try:
             match message_type:
+
                 # DHT API Messages
+
+                # TODO add try catch
                 case Message.DHT_GET:
-                    """
-                    Body of DHT_GET
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                    |  key            |  0             |  31           |  32           |
-                    +-----------------+----------------+---------------+---------------+
-                    """
-                    key = int.from_bytes(body[0: KEY_SIZE - 1])
-                    return_status = await self.handle_get_request(reader, writer, key)
-
+                    return_status = await self.handle_get_request(reader, writer, body)
                 case Message.DHT_PUT:
-                    """
-                    Body of DHT_PUT
-                    +-----------------+----------------+---------------+---------------+
-                    |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
-                    +-----------------+----------------+---------------+---------------+
-                    |  ttl            |  0             |  1            |  2            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  replication    |  2             |  2            |  1            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  reserved       |  3             |  3            |  1            |
-                    +-----------------+----------------+---------------+---------------+
-                    |  key            |  4             |  35           |  32           |
-                    +-----------------+----------------+---------------+---------------+
-                    |  value          |  36            |  end          |  variable     |
-                    +-----------------+----------------+---------------+---------------+
-                    """
-                    ttl: int = int.from_bytes(struct.pack(">H", body[0:2]))
-                    replication: int = body[2]
-                    key: int = int.from_bytes(body[4:4 + KEY_SIZE - 1], byteorder="big")
-                    value: bytes = body[260:]
-                    return_status = await self.handle_put_request(reader, writer, ttl, replication, key, value)
-
+                    return_status = await self.handle_put_request(reader, writer, body)
                 case _:
                     await bad_packet(reader, writer,
                                      f"Unknown message type {message_type} received",
-                                     header)
-
+                                     buf)
         except Exception as e:
             await bad_packet(reader, writer, f"Wrongly formatted message", buf)
+
         return return_status
 
-    async def handle_get_request(self, reader, writer, key: int):
+    async def handle_get_request(self, reader, writer, body: bytes)-> bool:
         """
         This method handles a get message. If the local node contains the data,
-        it will simply return it. If not, it will try to get from the kademlia network.
-        if it cant find it returns DHT_Success or DHT_failiure
+        it will simply return it. If not, it will try to get it from the kademlia network.
+        The method will send either DHT_SUCCESS or DHT_FAILURE.
         :param reader: The reader of the socket.
         :param writer: The writer of the socket.
-        :param key: The key associated to the data.
-        :return: True if the operation was successful.
+        :param body: The body of the request.
+        :return: True if the operation was successful
         """
-        # Get the address of the remote peer
-        remote_address, remote_port = writer.get_extra_info("socket").getpeername()
 
-        # Check if the value is in the local storage
-        value = self.local_node.local_hash_table.get(key)
+        """
+        Body of DHT_GET
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  key            |  0             |  31           |  32           |
+        +-----------------+----------------+---------------+---------------+
+        """
 
-        # If the value is not in the local storage, we have to get it from the Kademlia network from the other peers.
-        if value is None:
+        # Extracting the key
+        if len(body) < KEY_SIZE:
+            raise ValueError("DHT_GET has invalid body")
 
-            # needs to send a kademlia get message.
-            # better to start working there
-            find_value_response = await self.k_handler.handle_find_value_request(reader, writer, key)
-            # this way as we pass the reader / writer this will be handled on kademlia interface
-            # kademlia handler will act as it got FIND_VALUE request
-            # if it finds the value it returns true and sends the key value pair back to the passed reader/writer
-            # as we use same message types for dht_get-find_value and their respective success failure responses
-            # it will be seamless
-            # if it can't find it, it will return kbucket of closest nodes.
+        raw_key: bytes = body[:KEY_SIZE]
+        key : int = int.from_bytes(raw_key, byteorder='big')
 
-            if find_value_response == True:
+        # We try to get the value from the local storage.
+        value: bytes = self.local_node.local_hash_table.get(key)
+
+        # If the value is not found in the local storage, we try to find it in the distributed hash table in the
+        # network.
+        if not value:
+            value = await self.kademlia_service.find_value_in_network(key)
+
+        # If the value is not found, we send DHT_FAILURE
+        if not value:
+            """
+            Structure of DHT_FAILURE response
+            +-----------------+----------------+---------------+---------------+
+            |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+            +-----------------+----------------+---------------+---------------+
+            |  Size           |  0             |  1            |  2            |
+            +-----------------+----------------+---------------+---------------+
+            |  Message type   |  2             |  3            |  2            |
+            +-----------------+----------------+---------------+---------------+
+            |  key            |  4             |  35           |  32           |
+            +-----------------+----------------+---------------+---------------+
+            """
+
+            # Creation of the DHT_FAILURE message
+            size: int = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE
+            message_type: int= Message.DHT_FAILURE
+
+            response : bytes = struct.pack(">HH", size, message_type) + raw_key
+
+            # Sending the response
+            try:
+                writer.write(response)
+                await writer.drain()
+
+                # Get the address of the remote peer
+                remote_address, remote_port = writer.get_extra_info("socket").getpeername()
+                print(f"[+] {remote_address}:{remote_port} <<< DHT_FAILURE")
                 return True
-            else:
+
+            except Exception as e:
+                print(f"[-] Failed to send DHT_FAILURE {e}")
+                await bad_packet(reader, writer)
                 return False
 
-    async def handle_put_request(self, reader: StreamReader, writer: StreamWriter, ttl: int, replication: int, key: int,
-                                 value: bytes):
+        # If the value is found we send DHT_SUCCESS with the value.
+        """
+        Structure of DHT_SUCCESS response
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  Size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Message type   |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  key            |  4             |  35           |  32           |
+        +-----------------+----------------+---------------+---------------+
+        |  value          |  36            |  -            |  -            |
+        +-----------------+----------------+---------------+---------------+
+        """
+
+        # Creation of the DHT_SUCCESS message
+        size: int = SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE + len(value)
+        message_type: int = Message.DHT_SUCCESS
+        response: bytes = struct.pack(">HH", size, message_type) + raw_key + value
+
+        # Sending the response
+        try:
+            writer.write(response)
+            await writer.drain()
+
+            # Get the address of the remote peer
+            remote_address, remote_port = writer.get_extra_info("socket").getpeername()
+            print(f"[+] {remote_address}:{remote_port} <<< DHT_SUCCESS")
+            return True
+
+        except Exception as e:
+            print(f"[-] Failed to send DHT_SUCCESS {e}")
+            await bad_packet(reader, writer)
+            return False
+
+
+    async def handle_put_request(self, reader: StreamReader, writer: StreamWriter, body: bytes)->bool:
         """
         This method handles a put request. The Kademlia network will do its best effort to store the value in the DHT.
-        The local node first locates the closest nodes to the key and then sends them the STORE value instruction.
         :param reader: The StreamReader of the socket.
         :param writer: The StreamWriter of the socket.
-        :param ttl: The time to live of the value to be added in the DHT.
-        :param replication: The suggested number of different nodes where the value should be stored.
-        :param key: The key associated to the value
-        :param value: The data to be stored
-        :return: True if the operation was successful.
+        :param body: The body of the request.
         """
+
+        """
+        Body of DHT_PUT
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  ttl            |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  replication    |  2             |  2            |  1            |
+        +-----------------+----------------+---------------+---------------+
+        |  reserved       |  3             |  3            |  1            |
+        +-----------------+----------------+---------------+---------------+
+        |  key            |  4             |  35           |  32           |
+        +-----------------+----------------+---------------+---------------+
+        |  value          |  36            |  end          |  variable     |
+        +-----------------+----------------+---------------+---------------+
+        
+        """
+        ttl: int = int.from_bytes(struct.pack(">H", body[0:2]))
+        replication: int = body[2]
+        key: int = int.from_bytes(body[4:4 + KEY_SIZE - 1], byteorder="big")
+        value: bytes = body[260:]
+
+
+
         return_value = self.k_handler.handle_store_request(reader=reader, writer =writer, ttl=ttl,replication=replication,key=key,value=value)
         return return_value
