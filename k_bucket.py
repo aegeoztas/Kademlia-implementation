@@ -44,11 +44,11 @@ class NodeTuple:
 
     def __eq__(self, other):
         """
-        Override of the method equal. The equality is defined by with equality of all components.
+        Override of the method equal. The equality is defined by with the equality of the node_id.
         :param other: another NodeTuple
         :return: true if the components of both NodeTuples are equals.
         """
-        return self.ip_address == other.ip_address and self.port == other.port and self.node_id == other.node_id
+        return self.node_id == other.node_id
 
     def __str__(self):
         """
@@ -56,6 +56,13 @@ class NodeTuple:
         :return: A string representation of the NodeTuple.
         """
         return f"Node Tuple information [ Node ID: {self.node_id}, port: {self.port}, IP: {self.ip_address} ]"
+
+    def __hash__(self):
+        """
+        Override of the method __hash__.
+        :return: a hash of the NodeTuple.
+        """
+        return hash(self.node_id)
 
     def key_distance_to(self, key: int) -> int:
         """
@@ -171,4 +178,18 @@ class KBucket:
             value += f"\n#{i}\t{node}"
 
         return value
+
+class ComparableNodeTuple:
+    # This class is used to compare two NodeTuple. A NodeTuple with a smaller distance to a specific key
+    # is considered greater than the other with a bigger distance.
+
+    def __init__(self, node_tuple: NodeTuple, reference_key: int):
+        self.nodeTuple: NodeTuple = node_tuple
+        self.reference_key: int = reference_key
+
+    def __lt__(self, other):
+        # Nodes are compared with distance
+
+        return key_distance(self.nodeTuple.node_id, self.reference_key) < key_distance(other.nodeTuple.node_id,
+                                                                                       self.reference_key)
 
