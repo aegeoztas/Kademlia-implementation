@@ -57,7 +57,7 @@ def send_put(s, dht_key, dht_value):
     putreq = struct.pack(">HHHBB",
                          (4+4+int(256/8)+len(dht_value)),
                          DHT_PUT,
-                         1,
+                         100,
                          1,
                          0)
     putreq += dht_key

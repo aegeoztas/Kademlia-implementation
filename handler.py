@@ -4,7 +4,7 @@ from LocalNode import LocalNode
 from k_bucket import NodeTuple
 from bad_packet import *
 from asyncio.streams import StreamReader, StreamWriter
-from Constants import *
+from constants import *
 from kademlia_service import KademliaService
 from abc import ABC, abstractmethod
 
@@ -59,22 +59,24 @@ class DHTHandler(Handler):
         return_status = False
 
         # A specific handler is called depending on the message type.
-        try:
-            match message_type:
 
-                # DHT API Messages
+        match message_type:
 
-                # TODO add try catch
-                case Message.DHT_GET:
+            # DHT API Messages
+            case Message.DHT_GET:
+                try:
                     return_status = await self.handle_get_request(reader, writer, body)
-                case Message.DHT_PUT:
+                except Exception as e:
+                    print(f"DHT_GET wrongly formatted: {e}")
+            case Message.DHT_PUT:
+                try:
                     return_status = await self.handle_put_request(reader, writer, body)
-                case _:
-                    await bad_packet(reader, writer,
-                                     f"Unknown message type {message_type} received",
-                                     buf)
-        except Exception as e:
-            await bad_packet(reader, writer, f"Wrongly formatted message", buf)
+                except Exception as e:
+                    print(f"DHT_PUT wrongly formatted: {e}")
+            case _:
+                await bad_packet(reader, writer,
+                                 f"Unknown message type {message_type} received",
+                                 buf)
 
         return return_status
 
@@ -212,12 +214,12 @@ class DHTHandler(Handler):
         """
         # Extracting fields
         index=0
-        ttl: int = int.from_bytes(body[index:index+TTL_FIELD_SIZE])
+        ttl: int = int.from_bytes(body[index:index+TTL_FIELD_SIZE], byteorder='big')
         index+=TTL_FIELD_SIZE
-        replication: int = int.from_bytes(body[index:index+REPLICATION_FIELD_SIZE])
+        replication: int = int.from_bytes(body[index:index+REPLICATION_FIELD_SIZE], byteorder='big')
         index+=REPLICATION_FIELD_SIZE
         index+= RESERVED_FIELD_SIZE
-        key: int = int.from_bytes(body[index:index+KEY_SIZE])
+        key: int = int.from_bytes(body[index:index+KEY_SIZE], byteorder='big')
         index+=KEY_SIZE
         value: bytes = body[index:]
 

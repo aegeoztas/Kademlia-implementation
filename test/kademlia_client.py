@@ -6,11 +6,11 @@ import socket
 
 from asyncio import StreamReader, StreamWriter
 
-from Constants import Message
+from constants import Message
 from LocalNode import LocalNode
 from k_bucket import NodeTuple
 
-from Constants import *
+from constants import *
 
 async def send_message(message_type: int, payload: bytes, host: str, port: int,
                        no_response_expected: bool=False):

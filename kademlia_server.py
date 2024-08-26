@@ -4,7 +4,7 @@ from asyncio import StreamReader, StreamWriter
 
 from LocalNode import LocalNode
 from kademlia_service import KademliaService
-from Constants import *
+from constants import *
 from handler import Handler, KademliaHandler, DHTHandler
 
 # TODO Load from Windows INI configuration file
@@ -33,32 +33,23 @@ async def handle_connection(reader: StreamReader, writer: StreamWriter, handler:
 
         # Handle the message request
         await handler.handle_request(full_message, reader, writer)
+
     except Exception as e:
         print(f"Error handling connection a: {e}")
     finally:
         writer.close()
         await writer.wait_closed()
 
-
-async def start_kademlia_server(kademlia_handler: KademliaHandler):
+async def start_server(handler: Handler, ip: str, port: int, handler_name: str):
     server = await asyncio.start_server(
-        lambda reader, writer: handle_connection(reader, writer, kademlia_handler),
-        KADEMLIA_IP,  # Address to listen on
-        KADEMLIA_PORT  # Port to listen on
+        lambda reader, writer: handle_connection(reader, writer, handler),
+        ip,  # Address to listen on
+        port  # Port to listen on
     )
-    print(f"Kademlia Server started on IP: {KADEMLIA_IP} and port {KADEMLIA_PORT}...")
+    print(f"{handler_name} started on IP: {ip} and port {port}...")
     async with server:
         await server.serve_forever()
 
-async def start_dht_api_server(dht_handler: DHTHandler):
-    server = await asyncio.start_server(
-        lambda reader, writer: handle_connection(reader, writer, dht_handler),
-        DHT_API_IP,  # Address to listen on
-        DHT_API_PORT  # Port to listen on
-    )
-    print(f"DHT API Server started on IP: {DHT_API_IP} and port {KADEMLIA_PORT}...")
-    async with server:
-        await server.serve_forever()
 
 
 async def main():
@@ -67,49 +58,22 @@ async def main():
     local_node: LocalNode = LocalNode(KADEMLIA_IP, KADEMLIA_PORT, HOST_KEY_PEM)
 
     # Creation of the kademlia handler that handle requests from the kademlia network.
-    kademlia_handler = KademliaHandler(local_node)
+    kademlia_handler : KademliaHandler = KademliaHandler(local_node)
 
-    # Creation of the dht handler that handle requests from other VoidIP modules
-    dht_handler = DHTHandler(kademlia_handler)
-    yield server_node
-
-    await asyncio.gather(
-        start_dht_server(dht_handler),
-        start_kademlia_server(kademlia_handler)
-
-
-
-
-    dht_node =  LocalNode( '127.0.0.1', DHT_PORT)
-    kademlia_node = LocalNode( '127.0.0.1', KADEMLIA_PORT)
-    kademlia_handler = KademliaHandler(kademlia_node)
-    dht_handler = DHTHandler(kademlia_handler)
-
-
-    await asyncio.gather(
-        start_dht_server(dht_handler),
-        start_kademlia_server(kademlia_handler)
-    )
-
-
-async def main():
-
-    local_node: LocalNode = LocalNode(IP, PORT, HOST_KEY_PEM)
-
-    kademlia_handler : KademliaHandler= KademliaHandler(local_node)
-
+    # Creation the Kademlia service that is used to send requests in the kademlia network
     kademlia_service : KademliaService = KademliaService(local_node)
 
-    server = await asyncio.start_server(
-        lambda reader, writer: handle_connection(reader, writer, kademlia_handler),  # Pass the handler to the connection
-        IP,  # Address to listen on
-        PORT  # Port to listen on
-    )
+    # Creation of the dht handler that handle requests from other VoidIP modules
+    dht_handler : DHTHandler= DHTHandler(local_node, kademlia_service)
 
-    print("Kademlia DHT server started...")
 
-    async with server:
-        await server.serve_forever()
+
+    await asyncio.gather(
+        start_server(dht_handler, DHT_API_IP, DHT_API_PORT, handler_name="DHT API Server"),
+        start_server(kademlia_handler, KADEMLIA_IP, KADEMLIA_PORT, handler_name="Kademlia Server"))
+
+
+
 
 
 if __name__ == "__main__":
