@@ -1,6 +1,8 @@
 from enum import IntEnum
 import os
 from dotenv import load_dotenv
+import math
+
 
 load_dotenv()
 class Message(IntEnum):
@@ -39,3 +41,7 @@ RESERVED_FIELD_SIZE = int(os.getenv("RESERVED_FIELD_SIZE"))
 NB_OF_CLOSEST_PEERS = int(os.getenv("NB_OF_CLOSEST_PEERS"))
 MAX_TTL = int(os.getenv("MAX_TTL"))
 K = int(os.getenv("K"))
+
+KEY_BIT_LENGTH = int(os.getenv("KEY_BIT_LENGTH"))
+MAX_PORT_NUMBER = 65535
+MAX_KEY_VALUE = int(math.pow(2, KEY_BIT_LENGTH)) - 1  # The maximum value a key of an object or node id can have

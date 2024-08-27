@@ -1,19 +1,8 @@
-import math
-import os
 from collections import deque
-from dotenv import load_dotenv
 
-from ping import ping_node
+from ping import dummy_ping_node
 from xor_distance import key_distance
-
-# Load .env file, useful for testing purpose.
-load_dotenv()
-
-# Global variables
-MAX_PORT_NUMBER = 65535
-KEY_BIT_LENGTH = int(os.getenv("KEY_BIT_LENGTH")) # The number of bit in a key
-MAX_KEY_VALUE = int(math.pow(2, KEY_BIT_LENGTH)) - 1  # The maximum value a key of an object or node id can have
-K = int(os.getenv("K")) # The capacity of one single K-Bucket
+from constants import *
 
 
 class NodeTuple:
@@ -101,11 +90,14 @@ class KBucket:
     the least recently seen node is at the tail.
     """
 
-    def __init__(self, bucket_prefix: str):
+    def __init__(self, local_node:NodeTuple,  bucket_prefix: str):
         """
         The constructor of a KBucket.
+        :param local_node: contains ip, port and id of the local node.
         :param bucket_prefix: the prefix of IDs of the nodes contained in the bucket.
         """
+        self.local_node: NodeTuple = local_node
+
         self.bucket_prefix: str = bucket_prefix
         # size represent the number of nodes that we have currently in the bucket
         self.size: int = 0
@@ -119,9 +111,9 @@ class KBucket:
         :param candidate_node: The information of the peer: ip_address, port and node_id
         """
 
-        # Verification of the parameters
-        if not NodeTuple.has_prefix(candidate_node.node_id, self.bucket_prefix):
-            raise ValueError("Attempted to insert peer information into a bucket with the wrong prefix.")
+        # # Verification of the parameters
+        # if not NodeTuple.has_prefix(candidate_node.node_id, self.bucket_prefix):
+        #     raise ValueError("Attempted to insert peer information into a bucket with the wrong prefix.")
 
         # Update of the bucket content:
 
@@ -143,7 +135,7 @@ class KBucket:
             # If the last node respond to the ping we place it at the start of the list.
             else:
                 last_node = self.bucket.pop()
-                positive_response = ping_node(last_node.ip_address, last_node.port, last_node.node_id)
+                positive_response = dummy_ping_node(last_node.ip_address, last_node.port, last_node.node_id)
                 if positive_response:
                     self.bucket.appendleft(last_node)
                 else:
