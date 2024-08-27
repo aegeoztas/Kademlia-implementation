@@ -1,13 +1,10 @@
-import heapq
 import secrets
-
+import socket
+import struct
 import LocalNode
 import asyncio
-
-import xor_distance
 from LocalNode import LocalNode
 from k_bucket import NodeTuple, ComparableNodeTuple
-from bad_packet import *
 from asyncio.streams import StreamReader, StreamWriter
 from constants import *
 from xor_distance import key_distance

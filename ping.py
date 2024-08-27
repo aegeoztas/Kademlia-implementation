@@ -1,11 +1,9 @@
+import secrets
+
 from k_bucket import NodeTuple
-
-
-
 import socket
 import struct
-
-
+from constants import *
 
 
 def sync_ping_node(local_node: NodeTuple, node_to_ping: NodeTuple):
@@ -16,7 +14,7 @@ def sync_ping_node(local_node: NodeTuple, node_to_ping: NodeTuple):
 
     try:
         # Establish connection with remote peer
-        sock.connect((host, port))
+        sock.connect((node_to_ping.ip_address, node_to_ping.port))
 
         """
         Message Format
@@ -29,33 +27,34 @@ def sync_ping_node(local_node: NodeTuple, node_to_ping: NodeTuple):
         +-----------------+----------------+---------------+---------------+
         |  Node ID        |  4             |  35           |  32           |
         +-----------------+----------------+---------------+---------------+
-        |  IP handler     |  36            | 39            | 4             |
+        |  IP handler     |  36            | 39            |  4            |
         +-----------------+----------------+---------------+---------------+
-        |  Port handler   |  40            | 41            | 2             |
+        |  Port handler   |  40            | 41            |  2            |
         +-----------------+----------------+---------------+---------------+
-        |  Body           |  42            | end           | -             |
+        |  RPC ID         |  42            |  15           |  16           |
         +-----------------+----------------+---------------+---------------+
         """
 
+
         # Determine the size of the message and create the size field
         size_of_message: int = (SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + KEY_SIZE + IP_FIELD_SIZE + PORT_FIELD_SIZE
-                                + len(payload))  # Total size including the size field
-
+                                + RPC_ID_FIELD_SIZE)  # Total size including the size field
         size_field: bytes = struct.pack(">H", size_of_message)
-        message_type_field: bytes = struct.pack(">H", message_type)
-        node_id_field: bytes = self.local_node.node_id.to_bytes(32, byteorder='big')
-        ip_handler_field: bytes = socket.inet_aton(self.local_node.handler_ip)
-        port_handler_field: bytes = struct.pack(">H", self.local_node.handler_port)
+        message_type_field: bytes = struct.pack(">H", Message.PING)
+        node_id_field: bytes = local_node.node_id.to_bytes(32, byteorder='big')
+        ip_handler_field: bytes = socket.inet_aton(local_node.ip_address)
+        port_handler_field: bytes = struct.pack(">H", local_node.port)
+
+
+        rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
 
         # Create full message
         full_message: bytes = (size_field + message_type_field + node_id_field + ip_handler_field
-                               + port_handler_field + payload)
+                               + port_handler_field + rpc_id)
 
         # Send the full message to the server
         sock.sendall(full_message)
 
-        if no_response_expected:
-            return b"Message sent"
 
         # Receive response from the server
         response_size_bytes = sock.recv(SIZE_FIELD_SIZE)
