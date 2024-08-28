@@ -8,8 +8,6 @@ from handler import Handler, KademliaHandler, DHTHandler
 
 import config
 
-HOST_KEY_PEM = "123456789"
-
 async def handle_connection(reader: StreamReader, writer: StreamWriter, handler: Handler):
 
     try:
@@ -45,11 +43,18 @@ async def start_server(handler: Handler, ip: str, port: int, handler_name: str):
 
 async def main():
 
+    # Get ip and ports from configuration file
     kademlia_handler_ip, kademlia_handler_port = config.get_address_from_conf("p2p_address")
     api_ip, api_port = config.get_address_from_conf("api_address")
 
+    # Get the host_key from the configuration file
+    try:
+        host_key = config.get_private_key()
+    except Exception:
+        return
+
     # Creation of the local node that contains all the functionalities of a peer.
-    local_node: LocalNode = LocalNode(kademlia_handler_ip, kademlia_handler_port, HOST_KEY_PEM)
+    local_node: LocalNode = LocalNode(kademlia_handler_ip, kademlia_handler_port, host_key)
 
     # Creation of the kademlia handler that handle requests from the kademlia network.
     kademlia_handler : KademliaHandler = KademliaHandler(local_node)

@@ -1,13 +1,38 @@
 import socket
 import struct
+import hexdump
 from local_node import LocalNode
 from k_bucket import NodeTuple
-from bad_packet import *
 from asyncio.streams import StreamReader, StreamWriter
 from constants import *
 from kademlia_service import KademliaService
 from abc import ABC, abstractmethod
 
+
+async def bad_packet(writer, reason='', data=b''):
+    """
+    This helper function is called when a response packet has the wrong format.
+    :param writer: The writer to write messages to the socket
+    :param reason: The message printed for the failure
+    :param data: The content of the packet.
+    :return: (void)
+    """
+    try:
+        remote_addr, remote_port = writer.get_extra_info('socket').getpeername()
+    except OSError:
+        writer.close()
+        await writer.wait_closed()
+        print(f"[i] (Unknown) xxx Connection closed abruptly, state may remain")
+        return
+
+    if reason != '':
+        print(f"[-] {remote_addr}:{remote_port} >>> {reason}:\n")
+        hexdump.hexdump(data)
+        print('')
+
+    writer.close()
+    await writer.wait_closed()
+    print(f"[i] {remote_port}:{remote_port} xxx Connection closed")
 
 class Handler(ABC):
 
@@ -72,7 +97,7 @@ class DHTHandler(Handler):
                 except Exception as e:
                     print(f"DHT_PUT wrongly formatted: {e}")
             case _:
-                await bad_packet(reader, writer,
+                await bad_packet(writer,
                                  f"Unknown message type {message_type} received",
                                  buf)
 
@@ -146,7 +171,7 @@ class DHTHandler(Handler):
 
             except Exception as e:
                 print(f"[-] Failed to send DHT_FAILURE {e}")
-                await bad_packet(reader, writer)
+                await bad_packet(writer)
                 return False
 
         # If the value is found we send DHT_SUCCESS with the value.
@@ -182,7 +207,7 @@ class DHTHandler(Handler):
 
         except Exception as e:
             print(f"[-] Failed to send DHT_SUCCESS {e}")
-            await bad_packet(reader, writer)
+            await bad_packet(writer)
             return False
 
 
@@ -297,12 +322,12 @@ class KademliaHandler(Handler):
                 case Message.FIND_VALUE:
                     return_status = await self.handle_find_value_request(reader, writer, body)
                 case _:
-                    await bad_packet(reader, writer,
+                    await bad_packet(writer,
                                      f"Unknown message type {message_type} received",
                                      buf)
 
         except Exception:
-            await bad_packet(reader, writer, f"Wrongly formatted message", buf)
+            await bad_packet(writer, f"Wrongly formatted message", buf)
 
         # If the operation was successful we update our routing table with the information of the remote peer.
         if return_status:
@@ -367,7 +392,7 @@ class KademliaHandler(Handler):
 
         except Exception as e:
             print(f"[-] Failed to send PING_RESPONSE {e}")
-            await bad_packet(reader, writer)
+            await bad_packet(writer)
             return False
 
     async def handle_store_request(self, reader, writer, request_body: bytes):
@@ -509,7 +534,7 @@ class KademliaHandler(Handler):
             await writer.drain()
         except Exception as e:
             print(f"[-] Failed to send FIND_NODE_RESP {e}")
-            await bad_packet(reader, writer, data=response)
+            await bad_packet(writer, data=response)
             return False
 
         # Get the address of the remote peer
