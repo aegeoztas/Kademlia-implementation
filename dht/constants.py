@@ -2,7 +2,7 @@ from enum import IntEnum
 import os
 from dotenv import load_dotenv
 import math
-from config import config
+import config
 
 # Load the global variables. They are all located in the .env file.
 load_dotenv()

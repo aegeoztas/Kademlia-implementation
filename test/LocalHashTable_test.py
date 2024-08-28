@@ -1,7 +1,6 @@
-import pytest
 import time
 
-from local_hash_table import LocalHashTable
+from dht.local_hash_table import LocalHashTable
 
 class TestLocalHashTable:
     def test_init(self):

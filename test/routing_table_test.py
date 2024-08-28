@@ -1,6 +1,5 @@
 import pytest
 import random
-import math
 import sys
 import os
 
@@ -8,7 +7,7 @@ import os
 # Add the project directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from routing_table import *
+from dht.routing_table import *
 
 def left_leaf_test():
     # Work with 256 bits length , K = 2 and PING should be set to TRUE

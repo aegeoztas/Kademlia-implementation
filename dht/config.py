@@ -7,9 +7,9 @@ DHT_CONFIG_NAME = "dht"
 
 # Creation of the config parser
 config = configparser.ConfigParser()
-# The .ini file is located in the same folder of the config.py file, i.e. the config folder.
-dir_path = os.path.dirname(os.path.realpath(__file__))
-config_path = os.path.join(dir_path, "config.ini")
+# The .ini file is the config folder.
+parent_dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+config_path = os.path.join(parent_dir_path, "config", "config.ini")
 # We read the config file.
 config.read(config_path)
 

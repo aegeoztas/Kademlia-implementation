@@ -1,6 +1,5 @@
-from k_bucket import NodeTuple
-from kademlia_service import KademliaService
-from local_node import LocalNode
+from dht.kademlia_service import KademliaService
+from dht.local_node import LocalNode
 import asyncio
 
 async def main():

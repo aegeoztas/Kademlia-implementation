@@ -6,7 +6,7 @@ import os
 # Add the project directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from k_bucket import *
+from dht.k_bucket import *
 
 def get_random_valid_node_tuple()->NodeTuple:
     ip_value = random.randint(0, 100)

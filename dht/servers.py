@@ -6,7 +6,7 @@ from kademlia_service import KademliaService
 from constants import *
 from handler import Handler, KademliaHandler, DHTHandler
 
-from config import config
+import config
 
 HOST_KEY_PEM = "123456789"
 
@@ -65,7 +65,6 @@ async def main():
     await asyncio.gather(
         start_server(dht_handler, api_ip, api_port, handler_name="DHT API Server"),
         start_server(kademlia_handler, kademlia_handler_ip, kademlia_handler_port, handler_name="Kademlia Server"))
-
 
 if __name__ == "__main__":
     asyncio.run(main())

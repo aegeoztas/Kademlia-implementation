@@ -1,5 +1,4 @@
 # TODO add reguler api tests for the handler.
-import sys
 import time
 import pytest
 import os
@@ -9,8 +8,8 @@ from _pytest.fixtures import fixture
 from MessageTypes import Message
 from LocalNode import LocalNode
 
-from dht_api_server import start_dht_server,start_kademlia_server,start_servers
-from dht_api_client import send_message, send_ping, client_run
+from dht_api_server import start_servers
+from dht.dht_api_client import client_run
 
 SIZE_FIELD_SIZE = int(os.getenv("SIZE_FIELD_SIZE"))
 MESSAGE_TYPE_FIELD_SIZE = int(os.getenv("MESSAGE_TYPE_FIELD_SIZE"))

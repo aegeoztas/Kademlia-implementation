@@ -6,7 +6,7 @@ import os
 # Add the project directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from xor_distance import key_distance
+from dht.xor_distance import key_distance
 
 
 def generate_random_id() -> int:
