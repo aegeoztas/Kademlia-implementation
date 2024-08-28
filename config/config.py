@@ -1,5 +1,7 @@
 import configparser
 import os
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 
 DHT_CONFIG_NAME = "dht"
 
@@ -20,24 +22,27 @@ def get_dht_parameters():
 
     return config[DHT_CONFIG_NAME]
 
-def
+def get_private_key():
+    """
+    This method is used to get the private key
+    :return:
+    """
+    # Get the host_key path
+    host_key_path = config.get('DEFAULT', 'hostkey')
 
-# Get the host_key path
-hostkey_path = config.get('DEFAULT', 'hostkey')
+    # Read the host_key
+    with open(host_key_path, "rb") as key_file:
+        private_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password=None,
+            backend=default_backend()
+        )
+    if private_key is None:
+        raise Exception("Unable to find or read file containing private key.")
+    return private_key
 
-# Afficher le chemin de la clé
-print("Hostkey path:", hostkey_path)
 
-# Charger la clé privée depuis le chemin spécifié
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
 
-with open(hostkey_path, "rb") as key_file:
-    private_key = serialization.load_pem_private_key(
-        key_file.read(),
-        password=None,  # Remplacez par votre mot de passe si le fichier est chiffré
-        backend=default_backend()
-    )
 
 
 
