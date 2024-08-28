@@ -49,8 +49,9 @@ async def main():
 
     # Get the host_key from the configuration file
     try:
-        host_key = config.get_private_key()
-    except Exception:
+        host_key = config.get_public_key()
+    except Exception as e:
+        print(e)
         return
 
     # Creation of the local node that contains all the functionalities of a peer.

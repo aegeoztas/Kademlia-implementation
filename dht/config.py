@@ -27,7 +27,7 @@ def get_address_from_conf(address_name: str)->Tuple[str, int]:
     return api_ip, int(api_port)
 
 
-def get_private_key():
+def get_public_key():
     """
     This method is used to get the private key
     :return:
@@ -37,14 +37,13 @@ def get_private_key():
 
     # Read the host_key
     with open(host_key_path, "rb") as key_file:
-        private_key = serialization.load_pem_private_key(
+        public_key = serialization.load_pem_public_key(
             key_file.read(),
-            password=None,
             backend=default_backend()
         )
-    if private_key is None:
-        raise Exception("Unable to find or read file containing private key.")
-    return private_key
+    if public_key is None:
+        raise Exception("Unable to find or read file containing public key.")
+    return public_key
 
 
 
