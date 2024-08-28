@@ -24,7 +24,6 @@ class TreeNode(ABC):
         is invariant for the whole tree.
         :param prefix: The prefix associated with the TreeNode. Every node contained in the subtree of the node has its ID matching
         the prefix.
-        :param
         """
         self.local_node = local_node
         self.prefix: str = prefix
@@ -131,7 +130,6 @@ class Leaf(TreeNode):
         :param local_node: represent the identity of the local peer, contains ip, port and key (node_id). The value
         is invariant for the whole tree.
         :param prefix: The prefix that matches all node IDs present in K-bucket of the Leaf.
-        :param bucket: The K-bucket contained in the Leaf.
         """
         super().__init__(local_node, prefix)
         self.bucket: KBucket = KBucket(local_node, prefix)

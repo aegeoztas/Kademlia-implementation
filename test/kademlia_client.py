@@ -7,7 +7,7 @@ import socket
 from asyncio import StreamReader, StreamWriter
 
 from constants import Message
-from LocalNode import LocalNode
+from local_node import LocalNode
 from k_bucket import NodeTuple
 
 from constants import *

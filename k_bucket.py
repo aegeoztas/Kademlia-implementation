@@ -1,6 +1,6 @@
 from collections import deque
 
-from ping import dummy_ping_node
+from ping import sync_ping_node
 from xor_distance import key_distance
 from constants import *
 
@@ -135,7 +135,11 @@ class KBucket:
             # If the last node respond to the ping we place it at the start of the list.
             else:
                 last_node = self.bucket.pop()
-                positive_response = dummy_ping_node(last_node.ip_address, last_node.port, last_node.node_id)
+                positive_response = sync_ping_node(self.local_node.ip_address,
+                                                   self.local_node.port,
+                                                   self.local_node.node_id,
+                                                   remote_ip=last_node.ip_address,
+                                                   remote_port=last_node.port)
                 if positive_response:
                     self.bucket.appendleft(last_node)
                 else:

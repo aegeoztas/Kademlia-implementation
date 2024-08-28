@@ -1,8 +1,7 @@
 import asyncio
-import os
 from asyncio import StreamReader, StreamWriter
 
-from LocalNode import LocalNode
+from local_node import LocalNode
 from kademlia_service import KademliaService
 from constants import *
 from handler import Handler, KademliaHandler, DHTHandler

@@ -9,7 +9,7 @@ from util import struct
 from _pytest.fixtures import fixture
 
 from MessageTypes import Message
-from LocalNode import LocalNode
+from local_node import LocalNode
 
 from dht_api_server import start_servers
 from test.dht_api_client import client_run

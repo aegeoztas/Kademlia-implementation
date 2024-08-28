@@ -1,6 +1,6 @@
 from k_bucket import NodeTuple
 from kademlia_service import KademliaService
-from LocalNode import LocalNode
+from local_node import LocalNode
 import asyncio
 
 async def main():

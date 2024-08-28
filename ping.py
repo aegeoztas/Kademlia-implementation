@@ -1,20 +1,17 @@
 import secrets
-
-from k_bucket import NodeTuple
 import socket
 import struct
 from constants import *
 
 
-def sync_ping_node(local_node: NodeTuple, node_to_ping: NodeTuple):
+def sync_ping_node(handler_ip: str, handler_port: int, local_node_id: int, remote_ip: str, remote_port: int):
 
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    full_response = None
-
+    sock.settimeout(TIME_OUT)
     try:
         # Establish connection with remote peer
-        sock.connect((node_to_ping.ip_address, node_to_ping.port))
+        sock.connect((remote_ip, remote_port))
 
         """
         Message Format
@@ -41,9 +38,9 @@ def sync_ping_node(local_node: NodeTuple, node_to_ping: NodeTuple):
                                 + RPC_ID_FIELD_SIZE)  # Total size including the size field
         size_field: bytes = struct.pack(">H", size_of_message)
         message_type_field: bytes = struct.pack(">H", Message.PING)
-        node_id_field: bytes = local_node.node_id.to_bytes(32, byteorder='big')
-        ip_handler_field: bytes = socket.inet_aton(local_node.ip_address)
-        port_handler_field: bytes = struct.pack(">H", local_node.port)
+        node_id_field: bytes = local_node_id.to_bytes(32, byteorder='big')
+        ip_handler_field: bytes = socket.inet_aton(handler_ip)
+        port_handler_field: bytes = struct.pack(">H", handler_port)
 
 
         rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
@@ -55,25 +52,41 @@ def sync_ping_node(local_node: NodeTuple, node_to_ping: NodeTuple):
         # Send the full message to the server
         sock.sendall(full_message)
 
-
         # Receive response from the server
+
+
         response_size_bytes = sock.recv(SIZE_FIELD_SIZE)
         response_size: int = struct.unpack(">H", response_size_bytes)[0]
-        response = sock.recv(response_size)
-        full_response = response_size_bytes + response
 
-    except Exception as e:
-        raise Exception(f"Error while sending or receiving message: {e}")
+        response_body = sock.recv(response_size-SIZE_FIELD_SIZE)
 
-    finally:
-        sock.close()
-        return full_response
+        """
+        Structure of PING_RESPONSE message
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  Size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Message type   |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  RPC ID         |  4             |  19           |  16           |
+        +-----------------+----------------+---------------+---------------+
+        """
+        if len(response_body) < MESSAGE_TYPE_FIELD_SIZE + RPC_ID_FIELD_SIZE:
+            # Ping response has invalid body
+            return False
 
+        message_type = int.from_bytes(response_body[:MESSAGE_TYPE_FIELD_SIZE], byteorder='big')
+        rpc_id_resp: bytes = response_body[MESSAGE_TYPE_FIELD_SIZE:RPC_ID_FIELD_SIZE]
+        if message_type == Message.PING_RESPONSE and rpc_id == rpc_id_resp:
+            return True
+        else:
+            return False
 
-def dummy_ping_node(ip_address: str, port: int, node_id: int)-> bool:
-    """
-    The method serves as a dummy method for testing purpose
-    The method should return true if the peer respond to the ping request and false if it does not respond.
-    """
-    success = True
-    return success
+    except socket.timeout:
+        # In case of timeout we return false
+        return False
+
+    except Exception:
+        # Error while sending or receiving message.
+        return False

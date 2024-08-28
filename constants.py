@@ -45,3 +45,5 @@ K = int(os.getenv("K"))
 KEY_BIT_LENGTH = int(os.getenv("KEY_BIT_LENGTH"))
 MAX_PORT_NUMBER = 65535
 MAX_KEY_VALUE = int(math.pow(2, KEY_BIT_LENGTH)) - 1  # The maximum value a key of an object or node id can have
+
+TIME_OUT = int(os.getenv("TIME_OUT"))

@@ -1,6 +1,6 @@
 import socket
 import struct
-from LocalNode import LocalNode
+from local_node import LocalNode
 from k_bucket import NodeTuple
 from bad_packet import *
 from asyncio.streams import StreamReader, StreamWriter
@@ -49,9 +49,7 @@ class DHTHandler(Handler):
         +-----------------+----------------+---------------+---------------+
         """
         # Extracting fields
-        index = 0
-        size: int = int.from_bytes(buf[index:index+SIZE_FIELD_SIZE], byteorder='big')
-        index += SIZE_FIELD_SIZE
+        index = SIZE_FIELD_SIZE
         message_type: int = int.from_bytes(buf[index:index+MESSAGE_TYPE_FIELD_SIZE], byteorder='big')
         index += MESSAGE_TYPE_FIELD_SIZE
         body: bytes = buf[index:]

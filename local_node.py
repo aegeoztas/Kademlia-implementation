@@ -1,6 +1,6 @@
 import hashlib
 import asyncio
-from LocalHashTable import *
+from local_hash_table import *
 from routing_table import *
 
 
