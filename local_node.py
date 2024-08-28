@@ -1,6 +1,6 @@
 import hashlib
 import asyncio
-from LocalHashTable import *
+from local_hash_table import *
 from routing_table import *
 
 
@@ -12,6 +12,7 @@ class LocalNode:
     """
 
     def __init__(self, ip : str, port: int, host_key: str):
+
         self.handler_ip: str = ip
         self.handler_port: int = port
 
@@ -21,9 +22,10 @@ class LocalNode:
         # Public keys are shared out-of-band.
         self.node_id = int(hashlib.sha256(host_key.encode()).hexdigest(), 16)
 
+        self.local_information: NodeTuple = NodeTuple(self.handler_ip, self.handler_port, self.node_id)
 
         self.routing_table_lock = asyncio.Lock()
-        self.routing_table : RoutingTable = RoutingTable(self.node_id)
+        self.routing_table : RoutingTable = RoutingTable(self.local_information)
         self.local_hash_table_lock = asyncio.Lock()
         self.local_hash_table : LocalHashTable = LocalHashTable()
 

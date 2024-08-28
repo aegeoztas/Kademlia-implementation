@@ -1,29 +1,15 @@
-import math
-import os
-
 from abc import ABC, abstractmethod
 from collections import deque
-
-from dotenv import load_dotenv
-
 from xor_distance import key_distance
 from k_bucket import KBucket, NodeTuple
-
-# Load .env file, useful for testing purpose.
-load_dotenv()
-
-# Global variables
-MAX_PORT_NUMBER = 65535
-KEY_BIT_LENGTH = int(os.getenv("KEY_BIT_LENGTH")) # The number of bit in a key
-MAX_KEY_VALUE = int(math.pow(2, KEY_BIT_LENGTH)) - 1  # The maximum value a key of an object or node id can have
-K = int(os.getenv("K")) # The capacity of one single K-Bucket
+from constants import *
 
 class TreeNode(ABC):
     """
     The abstract object TreeNode is the basis for the dynamic tree datastructure that represent the routing table.
     A TreeNode can either be an internal node or a leaf that store a K-Bucket.
 
-    The host_key is the id key of the local peer.
+    The local_node represent the identity of the local peer and contains its node_id.
 
     Peer data are placed in the tree according to their key distance from the host key.
 
@@ -31,18 +17,15 @@ class TreeNode(ABC):
     matched with the TreeNode prefix.
     """
 
-    def __init__(self, host_key: int, prefix: str):
+    def __init__(self, local_node: NodeTuple, prefix: str):
         """
         Constructor of a TreeNode.
-        :param host_key: The id key of the local peer. It is a KEY_BIT_LENGTH bits key that represent the identity of
-        the node. This value is invariant in the whole tree.
+        :param local_node: represent the identity of the local peer, contains ip, port and key (node_id). The value
+        is invariant for the whole tree.
         :param prefix: The prefix associated with the TreeNode. Every node contained in the subtree of the node has its ID matching
-        the
+        the prefix.
         """
-        if host_key < 0 or host_key > MAX_KEY_VALUE:
-            raise ValueError("Invalid host_key")
-
-        self.host_key: int = host_key
+        self.local_node = local_node
         self.prefix: str = prefix
 
     @abstractmethod
@@ -60,14 +43,6 @@ class TreeNode(ABC):
         """
         pass
 
-    # TODO check
-    # @abstractmethod
-    # def get_node_bucket(self, node_key: int) :
-    #     """
-    #     The method get_node is a recursive function that returns node object with the given key
-    #     by recursively search it.
-    #     """
-    #     pass
 
 class InternalNode(TreeNode):
     """
@@ -75,15 +50,16 @@ class InternalNode(TreeNode):
     However, it defines a subtree that contains all peers whose distance in binary notation matches its prefix.
     """
 
-    def __init__(self, host_key: int = None, prefix: str = None, left: TreeNode = None, right: TreeNode = None):
+    def __init__(self, local_node: NodeTuple=None, prefix: str = None, left: TreeNode = None, right: TreeNode = None):
         """
         Constructor of an InternalNode.
-        :param host_key: The ID of the local node.
+        :param local_node: represent the identity of the local peer, contains ip, port and key (node_id). The value
+        is invariant for the whole tree.
         :param prefix: The prefix that matches all node IDs present in the subtree.
         :param left: The left subtree of the internal node.
         :param right: The right subtree of the internal node.
         """
-        super().__init__(host_key, prefix)
+        super().__init__(local_node, prefix)
         self.left: TreeNode = left
         self.right: TreeNode = right
 
@@ -94,7 +70,7 @@ class InternalNode(TreeNode):
         """
 
         # Verification that the distance of the peer matches the prefix of the node.
-        if not NodeTuple.has_prefix(new_peer.key_distance_to(self.host_key), self.prefix):
+        if not NodeTuple.has_prefix(new_peer.key_distance_to(self.local_node.node_id), self.prefix):
             raise ValueError("The node should not be inserted in this subtree because the binary representation \
             of the distance does not match the prefix of the subtree")
 
@@ -102,7 +78,7 @@ class InternalNode(TreeNode):
 
         # If the peer prefix matches the prefix of the right child we call the update method of the right child.
         # Otherwise, the method of the left child is called.
-        if NodeTuple.has_prefix(new_peer.key_distance_to(self.host_key), right_prefix):
+        if NodeTuple.has_prefix(new_peer.key_distance_to(self.local_node.node_id), right_prefix):
             self.right.update(new_peer)
         else:
             self.left.update(new_peer)
@@ -141,39 +117,22 @@ class InternalNode(TreeNode):
                 peers.extend(peers_from_right)
             return peers
 
-    # def get_node_bucket(self, node_key: int):
-    #     """
-    #     As an internal node does not contain a K-Bucket, the method get_node_bucket will recursively call the get_node_bucket method
-    #     of the right or left child depending on the prefix of the distance of the node.
-    #     """
-    #
-    #     if not has_prefix(key_distance(node_key,self.host_key), self.prefix):
-    #         raise ValueError("The node should not be searched for in this subtree because the binary representation \
-    #                of the distance does not match the prefix of the subtree")
-    #
-    #     right_prefix: str = self.prefix + "0"
-    #
-    #     # If the peer prefix matches the prefix of the right child we call the get_node method of the right child.
-    #     # Otherwise, the method of the left child is called.
-    #     if has_prefix(key_distance(node_key,self.host_key), right_prefix):
-    #         self.right.get_node_bucket(node_key)
-    #     else:
-    #         self.left.get_node_bucket(node_key)
+
 class Leaf(TreeNode):
     """
     All leaf nodes contain a K-Bucket that stores the information of the peers whose distance
     matches the prefix of the bucket.
     """
 
-    def __init__(self, host_key: int, prefix: str):
+    def __init__(self, local_node: NodeTuple, prefix: str):
         """
         Constructor of a LeafNode.
-        :param host_key: The ID of the local node.
+        :param local_node: represent the identity of the local peer, contains ip, port and key (node_id). The value
+        is invariant for the whole tree.
         :param prefix: The prefix that matches all node IDs present in K-bucket of the Leaf.
-        :param bucket: The K-bucket contained in the Leaf.
         """
-        super().__init__(host_key, prefix)
-        self.bucket: KBucket = KBucket(prefix)
+        super().__init__(local_node, prefix)
+        self.bucket: KBucket = KBucket(local_node, prefix)
 
     def update(self, new_peer: NodeTuple):
         """
@@ -192,7 +151,7 @@ class Leaf(TreeNode):
 
         # The content of the bucket is sorted by the closest value to the distance
         k_bucket_content_sorted = sorted(
-            self.bucket.get_peers(), key=lambda x: abs(distance - x.key_distance_to(self.host_key)))
+            self.bucket.get_peers(), key=lambda x: abs(distance - x.key_distance_to(self.local_node.node_id)))
 
         return k_bucket_content_sorted[:nb_of_peers]
 
@@ -214,8 +173,8 @@ class LeftLeaf(Leaf):
      This ensures that the local node knows more and more nodes as its distance from them decreases.
     """
 
-    def __init__(self, host_key: int, prefix: str):
-        super().__init__(host_key, prefix)
+    def __init__(self, local_node: NodeTuple, prefix: str):
+        super().__init__(local_node, prefix)
 
     def update(self, new_peer: NodeTuple):
         """
@@ -223,7 +182,7 @@ class LeftLeaf(Leaf):
         the bucket will not be split and the new peer will either be discarded or replace another peer.
         """
         # Verification that the distance of the peer matches the prefix of the node.
-        if not NodeTuple.has_prefix(new_peer.key_distance_to(self.host_key), self.prefix):
+        if not NodeTuple.has_prefix(new_peer.key_distance_to(self.local_node.node_id), self.prefix):
             raise ValueError("The node should not be inserted in this bucket because the binary representation \
             of the distance does not match the prefix of the bucket")
 
@@ -238,8 +197,8 @@ class RightLeaf(Leaf):
     buckets that are attributed to its children.
     """
 
-    def __init__(self, host_key: int, prefix: str, parent=None):
-        super().__init__(host_key, prefix)
+    def __init__(self, local_node: NodeTuple, prefix: str, parent=None):
+        super().__init__(local_node, prefix)
         self.parent: InternalNode = parent
 
     def __split_bucket_and_add_new_peer(self, new_peer: NodeTuple):
@@ -249,12 +208,12 @@ class RightLeaf(Leaf):
 
         # Creation of two new leaves
         right_leaf_id: str = self.prefix + "0"
-        new_right_leaf: RightLeaf = RightLeaf(self.host_key, right_leaf_id, None)
+        new_right_leaf: RightLeaf = RightLeaf(self.local_node, right_leaf_id, None)
         left_leaf_id: str = self.prefix + "1"
-        new_left_leaf: LeftLeaf = LeftLeaf(self.host_key, left_leaf_id)
+        new_left_leaf: LeftLeaf = LeftLeaf(self.local_node, left_leaf_id)
 
         # Creation of an internal node that will replace the current Leaf and will be the parent of the new leaves
-        new_node = InternalNode(self.host_key, prefix=self.prefix, left=new_left_leaf, right=new_right_leaf)
+        new_node = InternalNode(self.local_node, prefix=self.prefix, left=new_left_leaf, right=new_right_leaf)
 
         # Add the pointers to the parents in the right leaf
         new_right_leaf.parent = new_node
@@ -266,7 +225,7 @@ class RightLeaf(Leaf):
         peers: deque[NodeTuple] = self.bucket.get_peers()
         for peer in reversed(peers):
 
-            if NodeTuple.has_prefix(peer.key_distance_to(self.host_key), prefix=new_right_leaf.prefix):
+            if NodeTuple.has_prefix(peer.key_distance_to(self.local_node.node_id), prefix=new_right_leaf.prefix):
                 new_right_leaf.update(peer)
             else:
                 new_left_leaf.update(peer)
@@ -282,7 +241,7 @@ class RightLeaf(Leaf):
         """
 
         # Verification that the distance of the peer matches the prefix of the node.
-        if not NodeTuple.has_prefix(new_peer.key_distance_to(self.host_key), self.prefix):
+        if not NodeTuple.has_prefix(new_peer.key_distance_to(self.local_node.node_id), self.prefix):
             raise ValueError("The node should not be inserted in this bucket because the binary representation \
             of the distance does not match the prefix of the bucket")
 
@@ -305,8 +264,8 @@ class TreeRootPointer(InternalNode):
     It is technically an InternalNode in order to make it easier to split the root when it's a leaf at the start.
     """
 
-    def __init__(self, host_key: int, prefix: str):
-        super().__init__(host_key, prefix)
+    def __init__(self, local_node: NodeTuple, prefix: str):
+        super().__init__(local_node, prefix)
 
     def update(self, new_peer: NodeTuple):
         """
@@ -326,11 +285,6 @@ class TreeRootPointer(InternalNode):
         """
         return self.right.get_nearest_peers(distance, nb_of_peers)
 
-    # def get_node_bucket(self,node_key: int):
-    #     """
-    #     The method get_nearest_peers called on a root pointer will simply call the method of the root.
-    #     """
-    #     return self.right.get_node_bucket(node_key)
 
 class RoutingTable:
     """
@@ -338,15 +292,15 @@ class RoutingTable:
     previously defined. Peer data are placed in the tree according to their xor key distance from the host key.
     """
 
-    def __init__(self, host_key: int):
+    def __init__(self, local_node: NodeTuple):
         """
         The host key is the key of the local node.
         At the start, the tree consists only of one leaf that contains a K-bucket that covers the entire distance
         prefix range.
         """
-        self.host_key: int = host_key
-        self.root_pointer: TreeRootPointer = TreeRootPointer(host_key, "")
-        root: TreeNode = RightLeaf(host_key, "", self.root_pointer)
+        self.local_node: NodeTuple = local_node
+        self.root_pointer: TreeRootPointer = TreeRootPointer(self.local_node, "")
+        root: TreeNode = RightLeaf(self.local_node, "", self.root_pointer)
         self.root_pointer.set_root(root)
 
     def update_table(self, ip_address: str, port: int, node_id: int):
@@ -375,12 +329,5 @@ class RoutingTable:
         The method get_nearest_peers returns the information of the n closest peer to the key value given as parameter.
         If there is less than n peers in the routing table, all peers will be returned.
         """
-        return self.root_pointer.get_nearest_peers(key_distance(self.host_key, key), nb_of_peers)
-
-    # def get_host_bucket(self):
-    #     """
-    #     The method get_host_bucket returns the bucketof the host node/leaf with the host key as its routing key.
-    #
-    #     """
-    #     return self.root_pointer.get_node_bucket(self.host_key)
+        return self.root_pointer.get_nearest_peers(key_distance(self.local_node.node_id, key), nb_of_peers)
 

@@ -1,13 +1,9 @@
-import heapq
 import secrets
-
-import LocalNode
+import socket
+import struct
 import asyncio
-
-import xor_distance
-from LocalNode import LocalNode
+from local_node import LocalNode
 from k_bucket import NodeTuple, ComparableNodeTuple
-from bad_packet import *
 from asyncio.streams import StreamReader, StreamWriter
 from constants import *
 from xor_distance import key_distance
@@ -112,7 +108,6 @@ class KademliaService:
         if len(message) < SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE:
             raise ValueError("Invalid response format, message too short")
 
-        size = int(struct.unpack(">H", message[:SIZE_FIELD_SIZE])[0])
         message_type = int(struct.unpack(">H", message[SIZE_FIELD_SIZE:SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE])[0])
 
         payload = message[SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE:]
@@ -201,20 +196,20 @@ class KademliaService:
 
             response = await self.send_request(Message.FIND_NODE, content, host, port)
 
-        except Exception as e:
+        except Exception:
             return None
 
-        message_type: int = 0
+        message_type: int
         payload: bytes
         try:
             message_type, payload = await self.process_response(response)
 
-        except Exception as e:
+        except Exception:
             return None
 
         try:
             return await self.handle_find_node_resp(message_type, payload, rpc_id)
-        except Exception as e:
+        except Exception:
             return None
 
 
@@ -228,7 +223,7 @@ class KademliaService:
         """
 
         # The initial list of nodes to query is the k-closest nodes present in the local routing table.
-        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, ALPHA)
         # The current list of closest nodes. It is represented as a heap.
         closest_nodes: list[ComparableNodeTuple] = [ComparableNodeTuple(node, key) for node in nodes_to_query]
         # A set to keep track of the already contacted nodes.
@@ -276,7 +271,7 @@ class KademliaService:
         # return k closest nodes
         return [node.nodeTuple for node in sorted(closest_nodes)]
 
-    async def send_store(self, host: str, port: int, key: int, ttl: int, value: bytes) -> bool:
+    async def send_store(self, host: str, port: int, key: int, ttl: int, value: bytes) -> None:
         """
         This function is used to send a store request
         :param host: the recipient IP address
@@ -313,7 +308,7 @@ class KademliaService:
 
     async def store_value_in_network(self, key: int, ttl: int, value: bytes):
         """
-        This function store a value in the network. It will first identify which node need to store the value and then
+        This function store a value in the network. It will first identify which node need to store the value, and then
         it will send them a store instruction.
         :param key: the key associated to the value to be stored.
         :param ttl: the time to live of the value.
@@ -324,7 +319,7 @@ class KademliaService:
         # We first get the k-closest nodes to the key.
         closest_nodes: list[NodeTuple] = await self.find_closest_nodes_in_network(key)
 
-        # We check if our local node also need to store the value. This is the case if if the local distance
+        # We check if our local node also need to store the value. This is the case if the local distance
         # to the key is smaller than the biggest distance of one node in the list or if we found less than k nodes in
         # the network.
 
@@ -343,7 +338,7 @@ class KademliaService:
 
     async def send_find_value(self, host: str, port: int, key: int)->(bytes, list[NodeTuple]):
         """
-        This method is used to send a a find_value request in the network.
+        This method is used to send a find_value request in the network.
         :param host: the recipient IP address
         :param port: the port of the recipient
         :param key: The key associated with the value.
@@ -373,13 +368,13 @@ class KademliaService:
         if not response:
             return None, None
 
-        message_type: int = 0
-        payload: bytes = None
+        message_type: int
+        payload: bytes
 
         try:
             message_type, payload = await self.process_response(response)
 
-        except Exception as e:
+        except Exception:
             # If the response was invalid we return None
             return None, None
 
@@ -407,7 +402,7 @@ class KademliaService:
             try:
                 closest_nodes: list[NodeTuple] = await self.handle_find_node_resp(message_type, payload, rpc_id)
                 return None, closest_nodes
-            except Exception as e:
+            except Exception:
                 return None, None
 
     async def find_value_in_network(self, key: int)-> bytes:
@@ -421,7 +416,7 @@ class KademliaService:
         # network.
 
         # The initial list of nodes to query is the k-closest nodes present in the local routing table.
-        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, ALPHA)
 
         # The current list of closest nodes. It is represented as a heap.
         closest_nodes: list[ComparableNodeTuple] = [ComparableNodeTuple(node, key) for node in nodes_to_query]
@@ -444,7 +439,7 @@ class KademliaService:
 
                 value,  k_closest_nodes_received= await completed_task
 
-                # If the value is found, we stop every other tasks and we return the value.
+                # If the value is found, we stop every other tasks, and we return the value.
                 if value is not None:
 
                     # cleanup all tasks

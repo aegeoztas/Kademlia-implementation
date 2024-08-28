@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Use a script to run both Python files in parallel
 #CMD ["sh", "-c", "python3 script1.py & python3 script2.py"]
-CMD ["sh", "-c", "python3 dummy_server.py "]
+CMD ["sh", "-c", "python3 kademlia_server.py "]
