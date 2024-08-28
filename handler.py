@@ -214,6 +214,7 @@ class DHTHandler(Handler):
         index=0
         ttl: int = int.from_bytes(body[index:index+TTL_FIELD_SIZE], byteorder='big')
         index+=TTL_FIELD_SIZE
+        # TODO
         replication: int = int.from_bytes(body[index:index+REPLICATION_FIELD_SIZE], byteorder='big')
         index+=REPLICATION_FIELD_SIZE
         index+= RESERVED_FIELD_SIZE
@@ -268,9 +269,7 @@ class KademliaHandler(Handler):
         +-----------------+----------------+---------------+---------------+
         """
         # Extracting the fields
-        index=0
-        size: int = int(struct.unpack(">H", buf[index:SIZE_FIELD_SIZE])[0])
-        index+=SIZE_FIELD_SIZE
+        index=SIZE_FIELD_SIZE
         message_type: int = int(struct.unpack(">H", buf[index:index+MESSAGE_TYPE_FIELD_SIZE])[0])
         index+=MESSAGE_TYPE_FIELD_SIZE
         node_id: int = int.from_bytes(buf[index:index+KEY_SIZE], byteorder="big")
@@ -302,7 +301,7 @@ class KademliaHandler(Handler):
                                      f"Unknown message type {message_type} received",
                                      buf)
 
-        except Exception as e:
+        except Exception:
             await bad_packet(reader, writer, f"Wrongly formatted message", buf)
 
         # If the operation was successful we update our routing table with the information of the remote peer.
@@ -401,9 +400,7 @@ class KademliaHandler(Handler):
             raise ValueError("STORE request body has invalid size")
 
         # Extracting fields from request
-        index=0
-        rpc_id : bytes = request_body[index:RPC_ID_FIELD_SIZE]
-        index+=RPC_ID_FIELD_SIZE
+        index=RPC_ID_FIELD_SIZE
         key : int = int.from_bytes(request_body[index:index+KEY_SIZE], byteorder='big')
         index+=KEY_SIZE
         ttl: int = int.from_bytes(request_body[index:index+TTL_FIELD_SIZE], byteorder='big')
@@ -424,8 +421,7 @@ class KademliaHandler(Handler):
 
     async def handle_find_node_request(self, reader, writer, request_body: bytes):
         """
-        This method handle a find_node request. The local node will send back the k known closest known to the key
-        present in the message.
+        This method handle a find_node request. The local node will send back the k-closest nodes to the key it knows of.
         :param self:
         :param reader: The reader of the socket.
         :param writer: The writer of the socket.
@@ -452,7 +448,7 @@ class KademliaHandler(Handler):
 
         # Getting the closest nodes
         async with self.local_node.routing_table_lock:
-            closest_nodes: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+            closest_nodes: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, K)
 
         nb_of_nodes_found = len(closest_nodes)
 

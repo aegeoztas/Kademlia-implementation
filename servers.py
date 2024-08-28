@@ -6,17 +6,9 @@ from kademlia_service import KademliaService
 from constants import *
 from handler import Handler, KademliaHandler, DHTHandler
 
-# TODO Load from Windows INI configuration file
+from config import config
 
 HOST_KEY_PEM = "123456789"
-
-KADEMLIA_IP = "127.0.0.1"
-DHT_API_IP = "127.0.0.1"
-
-KADEMLIA_PORT = 8889
-DHT_API_PORT = 8890
-
-
 
 async def handle_connection(reader: StreamReader, writer: StreamWriter, handler: Handler):
 
@@ -53,8 +45,11 @@ async def start_server(handler: Handler, ip: str, port: int, handler_name: str):
 
 async def main():
 
+    kademlia_handler_ip, kademlia_handler_port = config.get_address_from_conf("p2p_address")
+    api_ip, api_port = config.get_address_from_conf("api_address")
+
     # Creation of the local node that contains all the functionalities of a peer.
-    local_node: LocalNode = LocalNode(KADEMLIA_IP, KADEMLIA_PORT, HOST_KEY_PEM)
+    local_node: LocalNode = LocalNode(kademlia_handler_ip, kademlia_handler_port, HOST_KEY_PEM)
 
     # Creation of the kademlia handler that handle requests from the kademlia network.
     kademlia_handler : KademliaHandler = KademliaHandler(local_node)
@@ -68,11 +63,8 @@ async def main():
 
 
     await asyncio.gather(
-        start_server(dht_handler, DHT_API_IP, DHT_API_PORT, handler_name="DHT API Server"),
-        start_server(kademlia_handler, KADEMLIA_IP, KADEMLIA_PORT, handler_name="Kademlia Server"))
-
-
-
+        start_server(dht_handler, api_ip, api_port, handler_name="DHT API Server"),
+        start_server(kademlia_handler, kademlia_handler_ip, kademlia_handler_port, handler_name="Kademlia Server"))
 
 
 if __name__ == "__main__":

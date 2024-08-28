@@ -223,7 +223,7 @@ class KademliaService:
         """
 
         # The initial list of nodes to query is the k-closest nodes present in the local routing table.
-        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, ALPHA)
         # The current list of closest nodes. It is represented as a heap.
         closest_nodes: list[ComparableNodeTuple] = [ComparableNodeTuple(node, key) for node in nodes_to_query]
         # A set to keep track of the already contacted nodes.
@@ -416,7 +416,7 @@ class KademliaService:
         # network.
 
         # The initial list of nodes to query is the k-closest nodes present in the local routing table.
-        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, NB_OF_CLOSEST_PEERS)
+        nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, ALPHA)
 
         # The current list of closest nodes. It is represented as a heap.
         closest_nodes: list[ComparableNodeTuple] = [ComparableNodeTuple(node, key) for node in nodes_to_query]
