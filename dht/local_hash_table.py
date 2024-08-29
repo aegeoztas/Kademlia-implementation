@@ -1,9 +1,5 @@
 import time
 
-# Time to live default value : TODO import the constant from configuration file
-TTL = 40
-
-
 class LocalHashTable:
     """
     A Local_hash_table represent the local storage of a peer. It is a hash table, and the values have time to live.
@@ -12,8 +8,6 @@ class LocalHashTable:
 
     def __init__(self):
         self.hash_table = {}
-        self.ttl = TTL
-
     def put(self, key, value, ttl=None):
         """
         The put function is used to add a value to the local hash table.
@@ -26,10 +20,8 @@ class LocalHashTable:
         """
 
         # Definition of the expiration time of the key-value pair
-        if not ttl:
-            expiration_time = time.time() + self.ttl
-        else:
-            expiration_time = time.time() + ttl
+
+        expiration_time = time.time() + ttl
 
         # Insertion of the value and logging
         self.hash_table[key] = (value, expiration_time)

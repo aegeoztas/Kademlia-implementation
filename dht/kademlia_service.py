@@ -465,12 +465,14 @@ class KademliaService:
                             contacted_nodes.add(node)  # add the node to contacted nodes.
                             # If the new node is closer than the closest in the list or if the list has less than k
                             # elements, add it
-                            if len(closest_nodes) < K:
+                            if (len(closest_nodes) < K
+                                    and node.nodeTuple.node_id != self.local_node.node_id):
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 closest_nodes.append(comparable_node)
                                 tasks.append(asyncio.create_task(self.send_find_value(node_info.ip_address,
                                                                                      node_info.port, key)))
-                            elif all(comparable_node < n for n in closest_nodes):
+                            elif (all(comparable_node < n for n in closest_nodes)
+                                  and node.nodeTuple.node_id != self.local_node.node_id):
                                 closest_nodes.remove(min(closest_nodes))
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 tasks.append(asyncio.create_task(self.send_find_value(node_info.ip_address,

@@ -1,8 +1,10 @@
 import asyncio
+import struct
 import sys
 import os
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+import random
 
 from dht.k_bucket import NodeTuple
 from local_node import LocalNode
@@ -22,9 +24,15 @@ async def gen_public_key():
     return private_key.public_key()
 
 
+async def get_service_with_random_infos():
+    public_key = await gen_public_key()
+    local_node: LocalNode = LocalNode("1.1.1.1", random.randint(0, 50), public_key)
+    service: KademliaService = KademliaService(local_node)
+    return service
 
-async def send_store_test():
 
+async def store_and_retrieve_test():
+    # work with any server
     public_key = await gen_public_key()
     local_node: LocalNode = LocalNode("1.1.1.1", 0, public_key)
     service: KademliaService = KademliaService(local_node)
@@ -34,14 +42,82 @@ async def send_store_test():
     key = 12345
     await service.send_store(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key, ttl, value)
 
-    # using debugger to check if other process stored the value
 
+
+    public_key = await gen_public_key()
+    local_node: LocalNode = LocalNode("2.2.2.2", 0, public_key)
+    service: KademliaService = KademliaService(local_node)
+
+    key = 12345
+
+    value_retrieved, nodes = await service.send_find_value(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key)
+
+    assert nodes is None
+    assert value_retrieved == value
+
+async def test_find_nodes():
+    # need to be run just after server startup and with server with 0 known peer
+    service1 = await get_service_with_random_infos()
+    service2 = await get_service_with_random_infos()
+    service3 = await get_service_with_random_infos()
+
+    key1 = random.randint(0, 100)
+    value1 = struct.pack(">I", random.randint(0, 50))
+    await service1.send_store(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key1, 100, value1)
+
+    key2 = random.randint(0, 100)
+    value2 = struct.pack(">I", random.randint(0, 50))
+    await service2.send_store(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key2, 100, value2)
+
+    key3 = random.randint(0, 100)
+    value3 = struct.pack(">I", random.randint(0, 50))
+    await service3.send_store(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key3, 100, value3)
+
+    resp = await service3.send_find_node(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, 0)
+
+    assert len(resp) == 3
+
+    for elem in resp:
+        assert elem.node_id == service1.local_node.node_id or elem.node_id == service2.local_node.node_id or elem.node_id == service3.local_node.node_id
+        print(elem)
+
+
+
+async def test_find_value_with_no_value():
+    # need to be run just after server startup and with server with 0 known peer
+    service1 = await get_service_with_random_infos()
+    service2 = await get_service_with_random_infos()
+    service3 = await get_service_with_random_infos()
+
+    key1 = random.randint(0, 100)
+    value1 = struct.pack(">I", random.randint(0, 50))
+    await service1.send_store(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key1, 100, value1)
+
+    key2 = random.randint(0, 100)
+    value2 = struct.pack(">I", random.randint(0, 50))
+    await service2.send_store(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key2, 100, value2)
+
+    key3 = random.randint(0, 100)
+    value3 = struct.pack(">I", random.randint(0, 50))
+    await service3.send_store(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, key3, 100, value3)
+
+    nothing, resp = await service3.send_find_value(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT, 0)
+
+    assert nothing is None
+    assert len(resp) == 3
+
+    for elem in resp:
+        assert elem.node_id == service1.local_node.node_id or elem.node_id == service2.local_node.node_id or elem.node_id == service3.local_node.node_id
+        print(elem)
 
 
 
 
 async def main():
-    await send_store_test()
+    # Each test should be run alone and with a fresh server without known peers
+    await store_and_retrieve_test()
+    # await test_find_nodes()
+    # await test_find_value_with_no_value()
 
 
 

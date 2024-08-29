@@ -623,4 +623,4 @@ class KademliaHandler(Handler):
         else:
             # If the value is not present in the local storage, the list of known closest nodes to the key of the value
             # is returned.
-            return await self.handle_find_value_request(reader, writer, request_body)
+            return await self.handle_find_node_request(reader, writer, request_body)
