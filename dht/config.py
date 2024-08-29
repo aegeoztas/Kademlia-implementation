@@ -9,7 +9,7 @@ DHT_CONFIG_NAME = "dht"
 config = configparser.ConfigParser()
 # The .ini file is the config folder.
 parent_dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-config_path = os.path.join(parent_dir_path, "config", "config.ini")
+config_path = os.path.join(parent_dir_path, "configuration", "config.ini")
 # We read the config file.
 config.read(config_path)
 

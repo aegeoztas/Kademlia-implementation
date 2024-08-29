@@ -54,11 +54,11 @@ MAX_PORT_NUMBER = int(os.getenv("MAX_PORT_NUMBER"))
 
 # DHT Parameters
 parameters = config.get_dht_parameters()
-ALPHA = parameters.get("ALPHA")
-K = parameters.get("K")
-MIN_TTL = parameters.get("MIN_TTL")
-MAX_TTL = parameters.get("MAX_TTL")
-TIME_OUT = parameters.get("TIME_OUT") # The time-out in second used when sending requests.
+ALPHA = int(parameters.get("ALPHA"))
+K = int(parameters.get("K"))
+MIN_TTL = int(parameters.get("MIN_TTL"))
+MAX_TTL = int(parameters.get("MAX_TTL"))
+TIME_OUT = int(parameters.get("TIME_OUT"))# The time-out in second used when sending requests.
 
 
 

@@ -1,12 +1,11 @@
 import hashlib
 import asyncio
-
+import socket
 from cryptography.hazmat.primitives import serialization
 
 from local_hash_table import *
 from routing_table import *
-
-
+from k_bucket import NodeTuple
 
 class LocalNode:
     """
@@ -15,6 +14,11 @@ class LocalNode:
     """
 
     def __init__(self, ip : str, port: int, host_key):
+
+        try:
+            socket.inet_aton(ip)
+        except Exception:
+            raise Exception("Invalid IP address")
 
         self.handler_ip: str = ip
         self.handler_port: int = port

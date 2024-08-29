@@ -313,7 +313,7 @@ class KademliaService:
 
         await self.send_request(Message.STORE, content, host, port, no_response_expected=True)
 
-    async def store_value_in_network(self, key: int, ttl: int, value: bytes):
+    async def store_value_in_network(self, key: int, ttl: int, value: bytes)->None:
         """
         This function store a value in the network. It will first identify which node need to store the value, and then
         it will send them a store instruction.

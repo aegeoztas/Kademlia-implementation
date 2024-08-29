@@ -433,8 +433,8 @@ class KademliaHandler(Handler):
         value : bytes = request_body[index:]
 
         # If the ttl is 0, the request is dropped.
-        if ttl <=  0:
-            return False
+        if ttl < MIN_TTL:
+            ttl = MIN_TTL
         elif ttl > MAX_TTL:
             ttl = MAX_TTL
 

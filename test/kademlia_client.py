@@ -5,12 +5,14 @@ import struct
 import socket
 
 from asyncio import StreamReader, StreamWriter
+from importlib.metadata import Deprecated
 
 from dht.local_node import LocalNode
 from dht.k_bucket import NodeTuple
 
 from dht.constants import *
 
+@Deprecated
 async def send_message(message_type: int, payload: bytes, host: str, port: int,
                        no_response_expected: bool=False):
 
@@ -90,7 +92,7 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int,
         await writer.wait_closed()
         return full_response
 
-
+@Deprecated
 async def process_response(message: bytes):
     """
     This method extract the message type and the payload of a message
@@ -107,7 +109,7 @@ async def process_response(message: bytes):
 
     return message_type, payload
 
-
+@Deprecated
 async def send_ping(host: str, port: int):
     """
     This function is used to send a ping request and to process the response
@@ -160,7 +162,7 @@ async def send_ping(host: str, port: int):
     else:
         print("Ping failed")
         return False
-
+@Deprecated
 async def send_store(host: str, port: int, key: int, ttl: int,  value: bytes)->bool:
     """
     This function is used to send a store request
@@ -198,7 +200,7 @@ async def send_store(host: str, port: int, key: int, ttl: int,  value: bytes)->b
         return True
     else:
         return False
-
+@Deprecated
 async def handle_find_node_resp(message_type: int, payload: bytes, rpc_id: bytes)-> bool:
     """
     This function is used to handle a find_node_resp
@@ -255,7 +257,7 @@ async def handle_find_node_resp(message_type: int, payload: bytes, rpc_id: bytes
         return True
 
     return False
-
+@Deprecated
 async def send_find_node(host: str, port: int, key: int):
     """
     This function is used to send a find request and to process the response
@@ -301,7 +303,7 @@ async def send_find_node(host: str, port: int, key: int):
         print("Find node failed")
 
 
-
+@Deprecated
 async def send_find_value(host: str, port: int, key: int)->bool:
     """
     This function is used to send a find value request
