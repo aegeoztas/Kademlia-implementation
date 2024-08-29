@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 from asyncio import StreamReader, StreamWriter
 
 from local_node import LocalNode
@@ -41,7 +42,7 @@ async def start_server(handler: Handler, ip: str, port: int, handler_name: str):
 
 
 
-async def main():
+async def main(known_peer_ip=None, known_peer_port=None, known_peer_id=None):
 
     # Get ip and ports from configuration file
     kademlia_handler_ip, kademlia_handler_port = config.get_address_from_conf("p2p_address")
@@ -58,10 +59,13 @@ async def main():
     local_node: LocalNode = LocalNode(kademlia_handler_ip, kademlia_handler_port, host_key)
 
     # Creation of the kademlia handler that handle requests from the kademlia network.
-    kademlia_handler : KademliaHandler = KademliaHandler(local_node)
+    kademlia_handler : KademliaHandler = KademliaHandler(local_node, )
 
     # Creation the Kademlia service that is used to send requests in the kademlia network
-    kademlia_service : KademliaService = KademliaService(local_node)
+    kademlia_service : KademliaService = KademliaService(local_node,
+                                                         known_peer_ip,
+                                                         known_peer_port,
+                                                         known_peer_id)
 
     # Creation of the dht handler that handle requests from other VoidIP modules
     dht_handler : DHTHandler= DHTHandler(local_node, kademlia_service)
@@ -73,7 +77,13 @@ async def main():
         start_server(kademlia_handler, kademlia_handler_ip, kademlia_handler_port, handler_name="Kademlia Server"))
 
 if __name__ == "__main__":
-    asyncio.run(main())
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-ip", "--known_peer_ip", type=str, required=False, help="ip of one known peer inside the kademlia network")
+    parser.add_argument("-p", "--known_peer_port", type=int, required=False, help="port of one known peer inside the kademlia network")
+    parser.add_argument("-id", "--known_peer_id", type=int, required=False, help="ID of one known peer inside the kademlia network")
+    args = parser.parse_args()
+    asyncio.run(main(args.known_peer_ip, args.known_peer_port, args.known_peer_id))
 
 
 
