@@ -1,14 +1,8 @@
 import asyncio
 import struct
-import sys
-import os
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
 import random
 
-from dht.constants import RPC_ID_FIELD_SIZE
-from dht.dht_api_client import SIZE_FIELD_SIZE, MESSAGE_TYPE_FIELD_SIZE
-from dht.k_bucket import NodeTuple
 from local_node import LocalNode
 from kademlia_service import KademliaService
 
