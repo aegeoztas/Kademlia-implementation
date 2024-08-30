@@ -29,6 +29,9 @@ class Message(IntEnum):
 
     FIND_VALUE = int(os.getenv('FIND_VALUE'))
     FIND_VALUE_RESP = int(os.getenv('FIND_VALUE_RESP'))
+
+    JOIN_NETWORK = int(os.getenv('JOIN_NETWORK'))
+    JOIN_NETWORK_RESP = int(os.getenv('JOIN_NETWORK_RESP'))
     # reserved until 679 for DHT
 
 

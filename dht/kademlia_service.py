@@ -313,17 +313,18 @@ class KademliaService:
 
         await self.send_request(Message.STORE, content, host, port, no_response_expected=True)
 
-    async def store_value_in_network(self, key: int, ttl: int, value: bytes)->None:
+    async def store_value_in_network(self, key: int, replication: int, ttl: int, value: bytes)->None:
         """
         This function store a value in the network. It will first identify which node need to store the value, and then
         it will send them a store instruction.
+        :param replication: The number of time the value should be replicated
         :param key: the key associated to the value to be stored.
         :param ttl: the time to live of the value.
         :param value: the value to be stored.
         :return: nothing.
         """
 
-        # We first get the k-closest nodes to the key.
+
         closest_nodes: list[NodeTuple] = await self.find_closest_nodes_in_network(key)
 
         # We check if our local node also need to store the value. This is the case if the local distance
@@ -488,19 +489,56 @@ class KademliaService:
         # If no value was found, we return None
         return None
 
+    async def send_join_network(self, host: str, port: int)->bool:
+        """
+
+        :param host:
+        :param port:
+        :return:
+        """
+
+        """
+        Body JOIN_NETWORK  message
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  RPC ID         |  0             |  15           |  16           |
+        +-----------------+----------------+---------------+---------------+
+        """
+        rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
+
+        try:
+            response = await self.send_request(Message.JOIN_NETWORK,rpc_id, host, port)
+        except Exception:
+            return False
+
+        message_type: int
+        payload: bytes
+        try:
+            message_type, payload = await self.process_response(response)
+        except Exception:
+            return False
+
+        """
+        Body JOIN_NETWORK_RESP message
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  RPC ID         |  0             |  15           |  16           |
+        +-----------------+----------------+---------------+---------------+
+        |  Node ID        |  16            |  47           |  32           |
+        +-----------------+----------------+---------------+---------------+
+        """
+        if message_type != Message.JOIN_NETWORK_RESP or len(payload) != RPC_ID_FIELD_SIZE + KEY_SIZE:
+            return False
+        rpc_id_resp : bytes = payload[:RPC_ID_FIELD_SIZE]
+        if rpc_id_resp != payload[:RPC_ID_FIELD_SIZE]:
+            return False
+
+        node_id: int = int.from_bytes(payload[RPC_ID_FIELD_SIZE:], byteorder='big')
+
+        async with self.local_node.routing_table_lock:
+            self.local_node.routing_table.update_table(host, port, node_id)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return True

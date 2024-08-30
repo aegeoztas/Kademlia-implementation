@@ -6,6 +6,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 import random
 
+from dht.constants import RPC_ID_FIELD_SIZE
+from dht.dht_api_client import SIZE_FIELD_SIZE, MESSAGE_TYPE_FIELD_SIZE
 from dht.k_bucket import NodeTuple
 from local_node import LocalNode
 from kademlia_service import KademliaService
@@ -110,12 +112,20 @@ async def test_find_value_with_no_value():
         assert elem.node_id == service1.local_node.node_id or elem.node_id == service2.local_node.node_id or elem.node_id == service3.local_node.node_id
         print(elem)
 
+async def test_join():
+    # work with any server
+    public_key = await gen_public_key()
+    local_node: LocalNode = LocalNode("1.1.1.1", 0, public_key)
+    service: KademliaService = KademliaService(local_node)
 
+    assert await service.send_join_network(SERVER_UNDER_TEST_IP, SERVER_UNDER_TEST_PORT)
 
+    assert len(service.local_node.routing_table.get_nearest_peers(0, 1)) == 1
 
 async def main():
     # Each test should be run alone and with a fresh server without known peers
-    await store_and_retrieve_test()
+    # await store_and_retrieve_test()
+    await test_join()
     # await test_find_nodes()
     # await test_find_value_with_no_value()
 

@@ -312,7 +312,7 @@ class KademliaHandler(Handler):
             match message_type:
 
                 # Kademlia specific messages
-                # TODO add try catch
+
                 case Message.PING:
                     return_status = await self.handle_ping_request(reader, writer, body)
                 case Message.STORE:
@@ -321,6 +321,9 @@ class KademliaHandler(Handler):
                     return_status = await self.handle_find_node_request(reader, writer, body)
                 case Message.FIND_VALUE:
                     return_status = await self.handle_find_value_request(reader, writer, body)
+                case Message.JOIN_NETWORK:
+                    return_status = await self.handle_join_network_request(reader, writer, body)
+
                 case _:
                     await bad_packet(writer,
                                      f"Unknown message type {message_type} received",
@@ -624,3 +627,66 @@ class KademliaHandler(Handler):
             # If the value is not present in the local storage, the list of known closest nodes to the key of the value
             # is returned.
             return await self.handle_find_node_request(reader, writer, request_body)
+
+    async def handle_join_network_request(self, reader, writer, request_body: bytes)->bool:
+        """
+
+        :param reader:
+        :param writer:
+        :param request_body:
+        :return:
+        """
+
+        """
+        Body JOIN_NETWORK  message
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  RPC ID         |  0             |  15           |  16           |
+        +-----------------+----------------+---------------+---------------+
+        """
+
+        if len(request_body) !=  RPC_ID_FIELD_SIZE:
+            raise ValueError("JOIN NETWORK request body has invalid size")
+
+        rpc_id: bytes = request_body
+
+        """
+        Structure of  JOIN_NETWORK_RESP response
+        +-----------------+----------------+---------------+---------------+
+        |  Field Name     |  Start Byte    |  End Byte     |  Size (Bytes) |
+        +-----------------+----------------+---------------+---------------+
+        |  Size           |  0             |  1            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  Message type   |  2             |  3            |  2            |
+        +-----------------+----------------+---------------+---------------+
+        |  RPC ID         |  4             |  19           |  16           |
+        +-----------------+----------------+---------------+---------------+
+        | Node ID         |  20            |  51           |  32           |
+        +-----------------+----------------+---------------+---------------+
+        """
+
+        # Constructing response message
+
+        # Header
+        message_size = (SIZE_FIELD_SIZE + MESSAGE_TYPE_FIELD_SIZE + RPC_ID_FIELD_SIZE + KEY_SIZE)
+
+        response = struct.pack(">HH", message_size, Message.JOIN_NETWORK_RESP)
+        response += rpc_id
+        response += int.to_bytes(self.local_node.node_id, 32, byteorder='big')
+
+        # Send the response
+        try:
+            writer.write(response)
+            await writer.drain()
+        except Exception as e:
+            print(f"[-] Failed to send JOIN_NETWORK_RESP {e}")
+            await bad_packet(writer, data=response)
+            return False
+
+        # Get the address of the remote peer
+        remote_address, remote_port = writer.get_extra_info("socket").getpeername()
+
+        print(f"[+] {remote_address}:{remote_port} <<< JOIN_NETWORK_RESP")
+
+        return True
