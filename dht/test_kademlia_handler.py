@@ -118,8 +118,8 @@ async def test_join():
 
 async def main():
     # Each test should be run alone and with a fresh server without known peers
-    # await store_and_retrieve_test()
-    await test_join()
+    await store_and_retrieve_test()
+    # await test_join()
     # await test_find_nodes()
     # await test_find_value_with_no_value()
 

@@ -1,8 +1,3 @@
-# Expose the ports of the two listening processes. Need to be set accordingly with the config.ini file
-# API process
-EXPOSE 8889
-# DHT Kademlia process
-EXPOSE 8890
 
 # Parameters to set if a public key will be provided to the dockerfile.
 # If no public key is provided, a random public key is generated.
@@ -54,9 +49,13 @@ COPY ./requirements.txt /DHT5
 # Ensure the required Python packages are installed (if any)
 RUN pip install --no-cache-dir -r requirements.txt
 
-
+# Expose the ports of the two listening processes. Need to be set accordingly with the config.ini file
+# API process
+EXPOSE 8889
+# DHT Kademlia process
+EXPOSE 8890
 
 
 # Make the Python files executable
 #RUN chmod +x script1.py script2.py
-CMD ["python3"]
+CMD ["python3", "dht/servers.py"]
