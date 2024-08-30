@@ -10,18 +10,12 @@ from xor_distance import key_distance
 
 class KademliaService:
 
-    def __init__(self, local_node: LocalNode, known_peer_ip=None, known_peer_port=None, known_peer_id=None):
+    def __init__(self, local_node: LocalNode):
         """
         Constructor
         :param local_node: A LocalNode object used to get access to the routing table and the local storage
-        :param known_peer_ip:
-        :param known_peer_port:
-        :param known_peer_id:
         """
         self.local_node: LocalNode = local_node
-
-        if known_peer_ip and known_peer_port and known_peer_id:
-            self.local_node.routing_table.update_table(known_peer_ip, known_peer_port, known_peer_id)
 
 
 

@@ -43,19 +43,9 @@ RUN if [ ! -f /DHT5/configuration/public_key.pem ];  then \
 
 # Copy of the required elements inside the container
 COPY ./dht /DHT5/dht
-COPY ./configuration/ /DHT5/configuration
 COPY ./requirements.txt /DHT5
 
 # Ensure the required Python packages are installed (if any)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the ports of the two listening processes. Need to be set accordingly with the config.ini file
-# API process
-EXPOSE 8889
-# DHT Kademlia process
-EXPOSE 8890
-
-
-# Make the Python files executable
-#RUN chmod +x script1.py script2.py
 CMD ["python3", "dht/servers.py"]

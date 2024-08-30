@@ -2,7 +2,8 @@ import configparser
 import os
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from typing import Tuple
+from typing import Tuple, Optional
+
 DHT_CONFIG_NAME = "dht"
 
 # Creation of the config parser
@@ -22,8 +23,11 @@ def get_dht_parameters():
 
     return config[DHT_CONFIG_NAME]
 
-def get_address_from_conf(address_name: str)->Tuple[str, int]:
-    api_ip, api_port = get_dht_parameters().get(address_name).split(':')
+def get_address_from_conf(address_name: str)->Tuple[Optional[str], Optional[int]]:
+    try:
+        api_ip, api_port = get_dht_parameters().get(address_name).split(':')
+    except Exception:
+        return None, None
     return api_ip, int(api_port)
 
 
