@@ -8,18 +8,11 @@
 5. Project Deadline: 02. September 23:59 CEST
 
 ## Tasks 
-- [ x] Start Writing initial report.
-- [ x] Pull the repo and create individual branches w/ rules.
-- [x ] Choose a DHT version w/ reasons. 
-- [x ] Figure out testcases. 
-- [ x] Plan project development timeline, which features are to be developed when. 
-
- ### Ege tasks 
-- [ ] implement server storage 
-- [ ] implement kademlia usage on api
-- [ ] think of non kademlia usage
-- [ ] implement timing of storage duration 
-- [ ] implement update already existing function for kbuckets 
-- [ ] kademlia should also time out peers... 
-
+- write final report / documentation
+- write tests showing functionality of the implementation
+- make a working Dockerfile with exposed API and peer to peer connection
+- we are not using encryption for the messages
+- ⁠the data is not stored encrypted in the local storage and anyone could could get the plaintext of the data
+- ⁠no authenticity since we are not verifying public key
+- 
 ***
