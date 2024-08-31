@@ -70,6 +70,8 @@ async def main(known_peer_ip=None, known_peer_port=None, known_peer_id=None):
     known_peer_ip, known_peer_port = config.get_address_from_conf("known_peer_address")
     if known_peer_ip and known_peer_port:
         await kademlia_service.send_join_network(known_peer_ip, known_peer_port)
+    else:
+        print("No known peer found in config file. Starting in the network with empty routing table")
 
     # Creation of the dht handler that handle requests from other VoidIP modules
     dht_handler : DHTHandler= DHTHandler(local_node, kademlia_service)

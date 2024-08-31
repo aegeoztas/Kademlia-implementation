@@ -251,12 +251,12 @@ class KademliaService:
                             contacted_nodes.add(node)  # add the node to contacted nodes.
                             # If the new node is closer than the closest in the list or if the list has less than k
                             # elements, add it
-                            if len(closest_nodes) < K:
+                            if len(closest_nodes) < K and node.node_id != self.local_node.node_id:
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 closest_nodes.append(comparable_node)
                                 tasks.append(asyncio.create_task(self.send_find_node(node_info.ip_address,
                                                                                      node_info.port, key)))
-                            elif all(comparable_node < n for n in closest_nodes):
+                            elif all(comparable_node < n for n in closest_nodes) and node.node_id != self.local_node.node_id:
                                 closest_nodes.remove(min(closest_nodes))
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 tasks.append(asyncio.create_task(self.send_find_node(node_info.ip_address,
@@ -326,7 +326,8 @@ class KademliaService:
         # the network.
 
         if len(closest_nodes) > 0 and key_distance(key, self.local_node.node_id) < key_distance(key, closest_nodes[-1].node_id):
-            closest_nodes.remove(closest_nodes[-1])
+            if len(closest_nodes) > K:
+                closest_nodes.remove(closest_nodes[-1])
             async with self.local_node.local_hash_table_lock:
                 self.local_node.local_hash_table.put(key, value, ttl)
 
@@ -461,13 +462,13 @@ class KademliaService:
                             # If the new node is closer than the closest in the list or if the list has less than k
                             # elements, add it
                             if (len(closest_nodes) < K
-                                    and node.nodeTuple.node_id != self.local_node.node_id):
+                                    and node.node_id != self.local_node.node_id):
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 closest_nodes.append(comparable_node)
                                 tasks.append(asyncio.create_task(self.send_find_value(node_info.ip_address,
                                                                                      node_info.port, key)))
                             elif (all(comparable_node < n for n in closest_nodes)
-                                  and node.nodeTuple.node_id != self.local_node.node_id):
+                                  and node.node_id != self.local_node.node_id):
                                 closest_nodes.remove(min(closest_nodes))
                                 node_info: NodeTuple = comparable_node.nodeTuple
                                 tasks.append(asyncio.create_task(self.send_find_value(node_info.ip_address,
@@ -502,15 +503,19 @@ class KademliaService:
         rpc_id: bytes = secrets.token_bytes(RPC_ID_FIELD_SIZE)
 
         try:
+
             response = await self.send_request(Message.JOIN_NETWORK,rpc_id, host, port)
         except Exception:
+            print("Connection failed with known peer specified in routing table. Starting with empty routing table")
             return False
 
         message_type: int
         payload: bytes
         try:
             message_type, payload = await self.process_response(response)
+
         except Exception:
+            print("Invalid response received from specified known peer. Starting with empty routing table")
             return False
 
         """
@@ -524,9 +529,13 @@ class KademliaService:
         +-----------------+----------------+---------------+---------------+
         """
         if message_type != Message.JOIN_NETWORK_RESP or len(payload) != RPC_ID_FIELD_SIZE + KEY_SIZE:
+            print("Invalid response received from specified known peer. Starting with empty routing table")
+
             return False
         rpc_id_resp : bytes = payload[:RPC_ID_FIELD_SIZE]
         if rpc_id_resp != payload[:RPC_ID_FIELD_SIZE]:
+            print("Invalid response received from specified known peer. Starting with empty routing table")
+
             return False
 
         node_id: int = int.from_bytes(payload[RPC_ID_FIELD_SIZE:], byteorder='big')
@@ -534,5 +543,6 @@ class KademliaService:
         async with self.local_node.routing_table_lock:
             self.local_node.routing_table.update_table(host, port, node_id)
 
+        print(f"[+] Received JOIN_NETWORK_RESP, successfully joined the network with peer {node_id}")
 
         return True

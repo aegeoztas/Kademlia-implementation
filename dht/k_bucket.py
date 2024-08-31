@@ -1,5 +1,4 @@
 from collections import deque
-
 from ping import sync_ping_node
 from xor_distance import key_distance
 from constants import *
