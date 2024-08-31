@@ -8,5 +8,5 @@ docker build --no-cache -t dht2 --build-arg PATH_TO_CONFIG_INI_FILE=./configurat
 #docker build --no-cache -t dht2 --build-arg PATH_TO_CONFIG_INI_FILE=./configuration/config2.ini .
 
 
-docker run -it --network host dht2
+docker run -d -it --network host dht2
 
