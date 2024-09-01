@@ -3,6 +3,8 @@ import struct
 import random
 import subprocess
 import os
+import time
+
 import requests
 import pytest
 import configparser
@@ -35,8 +37,8 @@ def make_dht_docker():
     """
     script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../run_docker.sh"))
     subprocess.run([script_path], check=True, shell=True)
+    time.sleep(15)# wait for docker to load
     yield
-
 
 @pytest.mark.asyncio
 async def test_put():
@@ -55,8 +57,4 @@ async def test_put():
 
     result =  await send_message(message_type=message_type, payload=payload, host=api_host, port=api_port)
     print(result)
-    input(result)
 
-
-if __name__ == "__main__":
-    pytest.run([])

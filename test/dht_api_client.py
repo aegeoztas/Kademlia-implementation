@@ -16,10 +16,10 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int):
     reader: StreamReader
     writer: StreamWriter
     full_response = None
-
+    reader, writer = await asyncio.open_connection(host, port)
     try:
         # Establish connection to server
-        reader, writer = await asyncio.open_connection(host, port)
+
 
         # Determine the size of the message and create the size field
         size_of_message: int = SIZE_FIELD_SIZE  + MESSAGE_TYPE_FIELD_SIZE + len(payload) # Total size including the size field
