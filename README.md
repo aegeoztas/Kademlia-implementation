@@ -1,5 +1,9 @@
 # P2PSecDHT
 
+##  Docker file 
+
+to prepare the docker image for a local node it is    
+
 ## Timeline 
 1. <del>Registration: 30. April 23:59 CEST</del>
 2. <del>Initial Report: 21. May 23:59 CEST</del>

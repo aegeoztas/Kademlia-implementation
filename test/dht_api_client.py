@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Global variable
-SIZE_FIELD_SIZE = int(os.getenv("SIZE_FIELD_SIZE"))
-MESSAGE_TYPE_FIELD_SIZE = int(os.getenv("MESSAGE_TYPE_FIELD_SIZE"))
+SIZE_FIELD_SIZE =2
+MESSAGE_TYPE_FIELD_SIZE =2
 
 async def send_message(message_type: int, payload: bytes, host: str, port: int):
 

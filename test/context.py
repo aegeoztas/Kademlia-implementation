@@ -5,5 +5,5 @@ import os
 # This is required to access the kademlia folder.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import kademlia
+# import kademlia
 
