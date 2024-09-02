@@ -4,6 +4,15 @@
 
 to prepare the docker image for a local node it is    
 
+
+## launcing a peer network
+to launch a peer network of 5 kademlia peers ready for connection you can run
+> python prepare_network.py
+
+> run_network.sh
+
+this will prepare 5 differnet config files and run 5 different dht-5 implementation instances using ip addressses 127.0.0.2-6
+After this running the bash script run_network.sh will build and run 5 different peers for furthrer testing. 
 ## Timeline 
 1. <del>Registration: 30. April 23:59 CEST</del>
 2. <del>Initial Report: 21. May 23:59 CEST</del>
