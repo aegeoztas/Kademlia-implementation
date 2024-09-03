@@ -97,6 +97,7 @@ class DHTHandler(Handler):
                 except Exception as e:
                     print(f"DHT_PUT wrongly formatted: {e}")
             case _:
+                print("[log]We got bad package!") # delete this print statement.
                 await bad_packet(writer,
                                  f"Unknown message type {message_type} received",
                                  buf)

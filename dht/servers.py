@@ -61,6 +61,7 @@ async def make_server(known_peer_ip=None, known_peer_port=None, known_peer_id=No
     kademlia_service : KademliaService = KademliaService(local_node)
     # get known peer information:
     known_peer_ip, known_peer_port = config.get_address_from_conf("known_peer_address")
+    print(f"[info] known peers:{known_peer_ip}{known_peer_port}") # delete this log
     if known_peer_ip and known_peer_port:
         await kademlia_service.send_join_network(known_peer_ip, known_peer_port)
     else:
