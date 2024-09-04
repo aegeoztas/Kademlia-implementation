@@ -75,6 +75,7 @@ class DHTHandler(Handler):
         """
         # Extracting fields
         index = SIZE_FIELD_SIZE
+        hexdump.hexdump(buf)
         message_type: int = int.from_bytes(buf[index:index+MESSAGE_TYPE_FIELD_SIZE], byteorder='big')
         index += MESSAGE_TYPE_FIELD_SIZE
         body: bytes = buf[index:]
