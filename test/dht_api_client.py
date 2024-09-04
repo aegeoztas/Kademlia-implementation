@@ -2,6 +2,7 @@ import asyncio
 import os
 import struct
 from asyncio import StreamReader, StreamWriter
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,7 +10,7 @@ load_dotenv()
 # Global variable
 SIZE_FIELD_SIZE = int(os.getenv("SIZE_FIELD_SIZE"))
 MESSAGE_TYPE_FIELD_SIZE = int(os.getenv("MESSAGE_TYPE_FIELD_SIZE"))
-
+@DeprecationWarning
 async def send_message(message_type: int, payload: bytes, host: str, port: int):
 
     # Declaration of reader and writer
@@ -54,17 +55,13 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int):
 
 
 
-async def send_ping(host: str, port: int):
-    a = 1
 
-
-
+@DeprecationWarning
 
 async def client_run(message_type: int, payload: bytes, host: str, port: int):
 
     response = await asyncio.run(send_message(message_type, payload, host, int))
     return response
-
 
 
 if __name__ == "__main__":

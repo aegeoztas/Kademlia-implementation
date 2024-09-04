@@ -24,6 +24,11 @@ def get_dht_parameters():
     return config[DHT_CONFIG_NAME]
 
 def get_address_from_conf(address_name: str)->Tuple[Optional[str], Optional[int]]:
+    """
+    This method is used to get the address from the configuration file.
+    :param address_name: the name of the address that we want to get the information from.
+    :return: An IP, port tuple.
+    """
     try:
         api_ip, api_port = get_dht_parameters().get(address_name).split(':')
     except Exception:

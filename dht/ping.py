@@ -5,8 +5,15 @@ from constants import *
 
 
 def sync_ping_node(handler_ip: str, handler_port: int, local_node_id: int, remote_ip: str, remote_port: int):
-
-    # Create a TCP/IP socket
+    """
+    This method is used to send a PING message in a synchronous manner.
+    :param handler_ip: The IP of the host to ping.
+    :param handler_port: The port of the host to ping.
+    :param local_node_id:
+    :param remote_ip:
+    :param remote_port:
+    :return:
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(TIME_OUT)
     try:
