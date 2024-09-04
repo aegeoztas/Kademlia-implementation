@@ -1,6 +1,8 @@
 import asyncio
 import argparse
 import struct
+import time
+
 import hexdump
 import configparser
 
@@ -82,7 +84,8 @@ async def main():
     # Read configuration for the first server (PUT request)
     put_api_host, api_port = config.get('dht', 'api_address').split(':')
     put_api_port = int(api_port)
-    # Read configuration for the second server (GET request)
+    # Read configuration for the second server (GET request)#
+
     config.read('/DHT5/configuration/config_1.ini')
     get_api_host, api_port = config.get('dht', 'api_address').split(':')
     get_api_port = int(api_port)
@@ -97,6 +100,8 @@ async def main():
     await send_put(put_writer, dht_key, dht_value)
     print(f"[log] put successful")
     # Connect to the second server and send GET request
+    print("[log] client sleeps for 10 seconds ")
+    time.sleep(10)
     print(f"[log] client trying to get value from {get_api_host}")
     get_reader, get_writer = await get_socket(get_api_host, get_api_port)
     await send_get(get_writer, get_reader, dht_key)
