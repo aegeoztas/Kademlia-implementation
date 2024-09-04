@@ -2,7 +2,7 @@ import asyncio
 import argparse
 import struct
 import time
-
+import secrets
 import hexdump
 import configparser
 
@@ -62,7 +62,10 @@ async def send_put(writer, dht_key, dht_value):
     putreq += dht_value
 
     print("[+] Sending PUT request...")
-
+    print("put value " )
+    print(dht_value)
+    print("send put request: ")
+    hexdump.hexdump(putreq)
     try:
         writer.write(putreq)
         await writer.drain()
@@ -91,7 +94,7 @@ async def main():
     get_api_port = int(api_port)
 
     # Key and Value to use
-    dht_key = b'my_unique_key_______'  # 32 bytes key
+    dht_key  = secrets.token_bytes(32) # 32 bytes key
     dht_value = b'sample_value'
 
     # Connect to the first server and send PUT request
