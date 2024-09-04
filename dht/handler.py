@@ -138,6 +138,7 @@ class DHTHandler(Handler):
         # If the value is not found in the local storage, we try to find it in the distributed hash table in the
         # network.
         if not value:
+
             value = await self.kademlia_service.find_value_in_network(key)
         print("value on kademlia node: ", value)  # delete later
         # If the value is not found, we send DHT_FAILURE
@@ -163,6 +164,7 @@ class DHTHandler(Handler):
 
             # Sending the response
             try:
+                #
                 writer.write(response)
                 await writer.drain()
 
