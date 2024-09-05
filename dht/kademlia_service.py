@@ -431,21 +431,22 @@ class KademliaService:
         # Send to each node
         tasks = [asyncio.create_task(self.send_find_value(node.ip_address, node.port, key)) for node in nodes_to_query]
         contacted_nodes.update(nodes_to_query)
-        # For each response that we received we update
-        # - the list of nodes to query
-        # - the list of closest nodes
-        # - the set of the already queried nodes
+        # For each response that we received we update:
+        # -the list of nodes to query
+        # -the list of closest nodes
+        # -the set of the already queried nodes
         while tasks:
             done_tasks, pending_tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             found_value = None
             new_tasks = []
             for task in done_tasks:
-                # get
+                # get the done tasks and look if we got a value matching with the key
                 value, k_closest_nodes_received = task.result()
 
                 if value:
                     found_value = value
                 elif k_closest_nodes_received:
+                    # if not the responding node will
                     for node in k_closest_nodes_received:
                         if node not in contacted_nodes and node.node_id != self.local_node.node_id:
                             contacted_nodes.add(node)
@@ -457,8 +458,9 @@ class KademliaService:
                 for task in pending_tasks:
                     task.cancel()
                 await asyncio.gather(*pending_tasks, return_exceptions=True)
+                # stop every task and return value
                 return found_value
-
+            # don't forget to update tasks for the loop
             tasks = new_tasks + list(pending_tasks)
 
 
