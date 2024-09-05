@@ -366,7 +366,6 @@ class KademliaService:
 
         content: bytes = rpc_id
         content += int.to_bytes(key, 32, byteorder='big')
-        print(f"trying to find value at {host}:{port}, {key}")#delete this
         response: bytes = await self.send_request(Message.FIND_VALUE, content, host, port)
 
         # If the response was invalid or not present we return None
@@ -398,11 +397,9 @@ class KademliaService:
             """
             if rpc_id == payload[:RPC_ID_FIELD_SIZE]:
                 value = payload[RPC_ID_FIELD_SIZE:]
-                print("found value", value)  # delete this
                 return value, None
             else:
                 # If the rpc ID is invalid we return None
-                print("couldn't find anything")  # delete this
                 return None, None
 
         # If the value was not found, but we received a list of closest node, we process it and return the list
@@ -424,7 +421,6 @@ class KademliaService:
         # network.
 
         # The initial list of nodes to query is the k-closest nodes present in the local routing table.
-        print("Trying to find value in Kademlia network")# delete this.
         nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, ALPHA)
 
         # The current list of closest nodes. It is represented as a heap.
@@ -447,15 +443,11 @@ class KademliaService:
             new_nodes_found = False
             for task in done_tasks:
                 value, k_closest_nodes_received = task.result()
-                time.sleep(1)# delete these also
                 print("completed task of find value in netwokr")
                 print(f"value:{value}, k closest nodes: {k_closest_nodes_received} ")
-                print(f"contacted nodes : {contacted_nodes}")# delete these also
                 if value:
-                    print("found a value:", value)  # delete this.
                     found_value = value
                 elif k_closest_nodes_received:
-                    print("asking new k closesst nodes.")  # delete this.
                     for node in k_closest_nodes_received:
                         if node not in contacted_nodes and node.node_id != self.local_node.node_id:
                             new_nodes_found = True
