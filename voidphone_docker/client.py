@@ -14,7 +14,10 @@ DHT_FAILURE = 653
 
 """
 This file simply copies what dht client under voidphone does and implements
-it on a docker machine With docker files and bash script. it uses 
+it on a docker machine With docker files and bash script. it uses basic functionality 
+of voidphone to tests the dht network if need be
+
+Before running this client you need to run the test network up.
 """
 async def send_get(writer, reader, dht_key):
     getreq = struct.pack(">HH32s", int((32+256)/8), DHT_GET, dht_key)

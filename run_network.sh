@@ -1,4 +1,5 @@
 #!/bin/bash
+# run_network.sh
 declare -a api_ports=("8881" "8882" "8883" "8884" "8885")
 declare -a p2p_ports=("8891" "8892" "8893" "8894" "8895")
 
