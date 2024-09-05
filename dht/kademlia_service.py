@@ -435,13 +435,12 @@ class KademliaService:
         # - the list of nodes to query
         # - the list of closest nodes
         # - the set of the already queried nodes
-        last_loop = False
         while tasks:
             done_tasks, pending_tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             found_value = None
             new_tasks = []
-            new_nodes_found = False
             for task in done_tasks:
+                # get
                 value, k_closest_nodes_received = task.result()
 
                 if value:
@@ -449,7 +448,6 @@ class KademliaService:
                 elif k_closest_nodes_received:
                     for node in k_closest_nodes_received:
                         if node not in contacted_nodes and node.node_id != self.local_node.node_id:
-                            new_nodes_found = True
                             contacted_nodes.add(node)
                             new_tasks.append(asyncio.create_task(self.send_find_value(node.ip_address, node.port, key)))
 
@@ -462,62 +460,8 @@ class KademliaService:
                 return found_value
 
             tasks = new_tasks + list(pending_tasks)
-            '''if not new_nodes_found:
-                print("No new nodes found, awaiting last tasks...")
-                if last_loop:
-                    break
-                else:
-                    await asyncio.gather(*tasks, return_exceptions=True)
-                    last_loop = True'''
 
-            # old task stuff after this point
-            """tasks = new_tasks + list(pending_tasks)
-            for completed_task in done_tasks:
 
-                value,  k_closest_nodes_received= await completed_task
-
-                if value is not None:
-
-                    # cleanup all tasks
-                    for task in tasks:
-                        task.cancel()
-                    await asyncio.gather(*tasks, return_exceptions=True)
-
-                    return value
-
-                # If we received instead a list of closest node, we process it and update the tasks
-
-                if k_closest_nodes_received is not None:
-
-                    for node in k_closest_nodes_received:
-                        comparable_node = ComparableNodeTuple(node, key)
-                        if node not in contacted_nodes:
-
-                            contacted_nodes.add(node)  # add the node to contacted nodes.
-                            # If the new node is closer than the closest in the list or if the list has less than k
-                            # elements, add it
-                            if (len(closest_nodes) < K
-                                    and node.node_id != self.local_node.node_id):
-                                node_info: NodeTuple = comparable_node.nodeTuple
-                                closest_nodes.append(comparable_node)
-                                tasks.append(asyncio.create_task(self.send_find_value(node_info.ip_address,
-                                                                                     node_info.port, key)))
-                            elif (all(comparable_node < n for n in closest_nodes)
-                                  and node.node_id != self.local_node.node_id):
-                                closest_nodes.remove(min(closest_nodes))
-                                node_info: NodeTuple = comparable_node.nodeTuple
-                                tasks.append(asyncio.create_task(self.send_find_value(node_info.ip_address,
-                                                                                     node_info.port, key)))
-            # Update the task list with pending tasks
-            tasks = list(pending_tasks)
-            print("task list:",tasks)# delete this
-        # cleanup all tasks
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-        # If no value was found, we return None
-        return None"""
 
     async def send_join_network(self, host: str, port: int)->bool:
         """
