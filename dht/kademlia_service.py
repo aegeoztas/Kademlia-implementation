@@ -443,23 +443,19 @@ class KademliaService:
             new_nodes_found = False
             for task in done_tasks:
                 value, k_closest_nodes_received = task.result()
-                print("completed task of find value in netwokr")
-                print(f"value:{value}, k closest nodes: {k_closest_nodes_received} ")
+
                 if value:
                     found_value = value
                 elif k_closest_nodes_received:
                     for node in k_closest_nodes_received:
                         if node not in contacted_nodes and node.node_id != self.local_node.node_id:
                             new_nodes_found = True
-                            print("asking node :", node)  # delete this.
-                            contacted_nodes.add(node) # if I put this later then it goes into looooop
-                            print("added node into contacted nodes added tasks into")
+                            contacted_nodes.add(node)
                             new_tasks.append(asyncio.create_task(self.send_find_value(node.ip_address, node.port, key)))
 
 
             if found_value:
                 # Cancel and await all pending tasks quickly since value is found
-                print("cancelling all pending tasks. ")  # delete this.
                 for task in pending_tasks:
                     task.cancel()
                 await asyncio.gather(*pending_tasks, return_exceptions=True)
