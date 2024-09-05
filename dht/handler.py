@@ -98,7 +98,6 @@ class DHTHandler(Handler):
                 except Exception as e:
                     print(f"DHT_PUT wrongly formatted: {e}")
             case _:
-                print("[log]We got bad package!") # delete this print statement.
                 await bad_packet(writer,
                                  f"Unknown message type {message_type} received",
                                  buf)
@@ -134,13 +133,11 @@ class DHTHandler(Handler):
 
         # We try to get the value from the local storage.
         value: bytes = self.local_node.local_hash_table.get(key)
-        print("value on local node: ", value)#delete later
         # If the value is not found in the local storage, we try to find it in the distributed hash table in the
         # network.
         if not value:
 
             value = await self.kademlia_service.find_value_in_network(key)
-        print("value on kademlia node: ", value)  # delete later
         # If the value is not found, we send DHT_FAILURE
         if not value:
             """
