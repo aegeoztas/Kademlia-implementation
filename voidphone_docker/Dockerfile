@@ -9,14 +9,21 @@ WORKDIR /DHT5
 
 # Arguments to control the build process
 
-ARG PATH_TO_PUT_CONFIG_INI_FILE=./configuration/config_5.ini
-ARG PATH_TO_GET_CONFIG_INI_FILE=./configuration/config_1.ini
+ARG PATH_TO_DHT1_CONFIG_INI_FILE=./configuration/config_1.ini
+ARG PATH_TO_DHT2_CONFIG_INI_FILE=./configuration/config_2.ini
+ARG PATH_TO_DHT3_CONFIG_INI_FILE=./configuration/config_3.ini
+ARG PATH_TO_DHT4_CONFIG_INI_FILE=./configuration/config_4.ini
+ARG PATH_TO_DHT5_CONFIG_INI_FILE=./configuration/config_5.ini
 
 # Copy the public key if the argument is true, otherwise generate a new key
 
 # Copy configuration files
-COPY $PATH_TO_PUT_CONFIG_INI_FILE /DHT5/configuration/config_5.ini
-COPY $PATH_TO_GET_CONFIG_INI_FILE /DHT5/configuration/config_1.ini
+COPY $PATH_TO_DHT1_CONFIG_INI_FILE /DHT5/configuration/config_1.ini
+COPY $PATH_TO_DHT2_CONFIG_INI_FILE /DHT5/configuration/config_2.ini
+COPY $PATH_TO_DHT3_CONFIG_INI_FILE /DHT5/configuration/config_3.ini
+COPY $PATH_TO_DHT4_CONFIG_INI_FILE /DHT5/configuration/config_4.ini
+COPY $PATH_TO_DHT5_CONFIG_INI_FILE /DHT5/configuration/config_5.ini
+
 
 
 COPY requirements.txt /DHT5/
