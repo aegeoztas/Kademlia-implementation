@@ -75,6 +75,7 @@ class DHTHandler(Handler):
         """
         # Extracting fields
         index = SIZE_FIELD_SIZE
+        hexdump.hexdump(buf)
         message_type: int = int.from_bytes(buf[index:index+MESSAGE_TYPE_FIELD_SIZE], byteorder='big')
         index += MESSAGE_TYPE_FIELD_SIZE
         body: bytes = buf[index:]
@@ -133,12 +134,13 @@ class DHTHandler(Handler):
 
         # We try to get the value from the local storage.
         value: bytes = self.local_node.local_hash_table.get(key)
-
+        print("value on local node: ", value)#delete later
         # If the value is not found in the local storage, we try to find it in the distributed hash table in the
         # network.
         if not value:
-            value = await self.kademlia_service.find_value_in_network(key)
 
+            value = await self.kademlia_service.find_value_in_network(key)
+        print("value on kademlia node: ", value)  # delete later
         # If the value is not found, we send DHT_FAILURE
         if not value:
             """
@@ -162,6 +164,7 @@ class DHTHandler(Handler):
 
             # Sending the response
             try:
+                #
                 writer.write(response)
                 await writer.drain()
 

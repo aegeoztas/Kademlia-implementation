@@ -2,6 +2,8 @@ import secrets
 import socket
 import struct
 import asyncio
+import time
+
 from local_node import LocalNode
 from k_bucket import NodeTuple, ComparableNodeTuple
 from asyncio.streams import StreamReader, StreamWriter
@@ -364,11 +366,12 @@ class KademliaService:
 
         content: bytes = rpc_id
         content += int.to_bytes(key, 32, byteorder='big')
-
+        print(f"trying to find value at {host}:{port}, {key}")#delete this
         response: bytes = await self.send_request(Message.FIND_VALUE, content, host, port)
 
         # If the response was invalid or not present we return None
         if not response:
+
             return None, None
 
         message_type: int
@@ -395,9 +398,11 @@ class KademliaService:
             """
             if rpc_id == payload[:RPC_ID_FIELD_SIZE]:
                 value = payload[RPC_ID_FIELD_SIZE:]
+                print("found value", value)  # delete this
                 return value, None
             else:
                 # If the rpc ID is invalid we return None
+                print("couldn't find anything")  # delete this
                 return None, None
 
         # If the value was not found, but we received a list of closest node, we process it and return the list
@@ -419,6 +424,7 @@ class KademliaService:
         # network.
 
         # The initial list of nodes to query is the k-closest nodes present in the local routing table.
+        print("Trying to find value in Kademlia network")# delete this.
         nodes_to_query: list[NodeTuple] = self.local_node.routing_table.get_nearest_peers(key, ALPHA)
 
         # The current list of closest nodes. It is represented as a heap.
@@ -428,21 +434,60 @@ class KademliaService:
 
         # Send to each node
         tasks = [asyncio.create_task(self.send_find_value(node.ip_address, node.port, key)) for node in nodes_to_query]
-
+        contacted_nodes.update(nodes_to_query)
+        # For each response that we received we update
+        # - the list of nodes to query
+        # - the list of closest nodes
+        # - the set of the already queried nodes
+        last_loop = False
         while tasks:
-
             done_tasks, pending_tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            found_value = None
+            new_tasks = []
+            new_nodes_found = False
+            for task in done_tasks:
+                value, k_closest_nodes_received = task.result()
+                time.sleep(1)# delete these also
+                print("completed task of find value in netwokr")
+                print(f"value:{value}, k closest nodes: {k_closest_nodes_received} ")
+                print(f"contacted nodes : {contacted_nodes}")# delete these also
+                if value:
+                    print("found a value:", value)  # delete this.
+                    found_value = value
+                elif k_closest_nodes_received:
+                    print("asking new k closesst nodes.")  # delete this.
+                    for node in k_closest_nodes_received:
+                        if node not in contacted_nodes and node.node_id != self.local_node.node_id:
+                            new_nodes_found = True
+                            print("asking node :", node)  # delete this.
+                            contacted_nodes.add(node) # if I put this later then it goes into looooop
+                            print("added node into contacted nodes added tasks into")
+                            new_tasks.append(asyncio.create_task(self.send_find_value(node.ip_address, node.port, key)))
 
-            # For each response that we received we update
-            # - the list of nodes to query
-            # - the list of closest nodes
-            # - the set of the already queried nodes
 
+            if found_value:
+                # Cancel and await all pending tasks quickly since value is found
+                print("cancelling all pending tasks. ")  # delete this.
+                for task in pending_tasks:
+                    task.cancel()
+                await asyncio.gather(*pending_tasks, return_exceptions=True)
+                return found_value
+
+            tasks = new_tasks + list(pending_tasks)
+            '''if not new_nodes_found:
+                print("No new nodes found, awaiting last tasks...")
+                if last_loop:
+                    break
+                else:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                    last_loop = True'''
+
+            # old task stuff after this point
+            """tasks = new_tasks + list(pending_tasks)
             for completed_task in done_tasks:
 
                 value,  k_closest_nodes_received= await completed_task
 
-                # If the value is found, we stop every other tasks, and we return the value.
                 if value is not None:
 
                     # cleanup all tasks
@@ -453,11 +498,13 @@ class KademliaService:
                     return value
 
                 # If we received instead a list of closest node, we process it and update the tasks
+
                 if k_closest_nodes_received is not None:
 
                     for node in k_closest_nodes_received:
                         comparable_node = ComparableNodeTuple(node, key)
                         if node not in contacted_nodes:
+
                             contacted_nodes.add(node)  # add the node to contacted nodes.
                             # If the new node is closer than the closest in the list or if the list has less than k
                             # elements, add it
@@ -475,14 +522,14 @@ class KademliaService:
                                                                                      node_info.port, key)))
             # Update the task list with pending tasks
             tasks = list(pending_tasks)
-
+            print("task list:",tasks)# delete this
         # cleanup all tasks
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
         # If no value was found, we return None
-        return None
+        return None"""
 
     async def send_join_network(self, host: str, port: int)->bool:
         """

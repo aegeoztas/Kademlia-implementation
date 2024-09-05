@@ -68,10 +68,9 @@ async def make_server(known_peer_ip=None, known_peer_port=None, known_peer_id=No
         print("No known peer found in config file. Starting in the network with empty routing table")
     # Creation of the dht handler that handle requests from other VoidIP modules
     dht_handler : DHTHandler= DHTHandler(local_node, kademlia_service)
-    zeroes = "0.0.0.0"
     await asyncio.gather(
-        start_server(dht_handler, zeroes, api_port, handler_name="DHT API Server"),
-        start_server(kademlia_handler, zeroes, kademlia_handler_port, handler_name="Kademlia Server"))
+        start_server(dht_handler, api_ip, api_port, handler_name="DHT API Server"),
+        start_server(kademlia_handler, kademlia_handler_ip, kademlia_handler_port, handler_name="Kademlia Server"))
 
 if __name__ == "__main__":
 

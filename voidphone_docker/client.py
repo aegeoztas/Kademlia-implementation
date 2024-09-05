@@ -62,7 +62,10 @@ async def send_put(writer, dht_key, dht_value):
     putreq += dht_value
 
     print("[+] Sending PUT request...")
-
+    print("put value " )
+    print(dht_value)
+    print("send put request: ")
+    hexdump.hexdump(putreq)
     try:
         writer.write(putreq)
         await writer.drain()
@@ -90,16 +93,8 @@ async def main():
     get_api_host, api_port = config.get('dht', 'api_address').split(':')
     get_api_port = int(api_port)
 
-    # Key and Value to use# 32 bytes key
-
-    # Generate a 32-byte key
-    dht_key = secrets.token_bytes(32)
-
-    print(f"Generated 32-byte key (in bytes): {dht_key}")
-    # If you need it in hexadecimal format
-    dht_key = dht_key.hex()
-
-    print(f"Generated 32-byte key (in hex): {dht_key}")
+    # Key and Value to use
+    dht_key  = secrets.token_bytes(32) # 32 bytes key
     dht_value = b'sample_value'
 
     # Connect to the first server and send PUT request
