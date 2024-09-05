@@ -86,32 +86,38 @@ async def get_socket(host, port):
 async def main():
     # parse commandline arguments
     config = configparser.ConfigParser()
-    config.read('/DHT5/configuration/config_5.ini')
-    # Read configuration for the first server (PUT request)
-    put_api_host, api_port = config.get('dht', 'api_address').split(':')
-    put_api_port = int(api_port)
-    # Read configuration for the second server (GET request)#
-
+    # get the dht api addresses of the test network
     config.read('/DHT5/configuration/config_1.ini')
-    get_api_host, api_port = config.get('dht', 'api_address').split(':')
-    get_api_port = int(api_port)
-
+    dht_1_host, api_port = config.get('dht', 'api_address').split(':')
+    dht_1_port = int(api_port)
+    config.read('/DHT5/configuration/config_2.ini')
+    dht_2_host, api_port = config.get('dht', 'api_address').split(':')
+    dht_2_port = int(api_port)
+    config.read('/DHT5/configuration/config_3.ini')
+    dht_3_host, api_port = config.get('dht', 'api_address').split(':')
+    dht_3_port = int(api_port)
+    config.read('/DHT5/configuration/config_4.ini')
+    dht_4_host, api_port = config.get('dht', 'api_address').split(':')
+    dht_4_port = int(api_port)
+    config.read('/DHT5/configuration/config_5.ini')
+    dht_5_host, api_port = config.get('dht', 'api_address').split(':')
+    dht_5_port = int(api_port)
     # Key and Value to use
-    dht_key  = secrets.token_bytes(32) # 32 bytes key
-    dht_value = b'sample_value'
+    dht_key_1  = secrets.token_bytes(32) # 32 bytes key
+    dht_value_1 = b'sample_value_one'
 
     # Connect to the first server and send PUT request
-    print(f"[log] client trying to put value into {put_api_host}")
-    put_reader, put_writer = await get_socket(put_api_host, put_api_port)
-    await send_put(put_writer, dht_key, dht_value)
-    print(f"[log] put successful")
+    print(f"[LOG] client trying to put value into {dht_5_host}")
+    put_reader, put_writer = await get_socket(dht_5_host, dht_5_port)
+    await send_put(put_writer, dht_key_1, dht_value_1)
+    print(f"[LOG] put successful")
     # Connect to the second server and send GET request
-    print("[log] client sleeps for 10 seconds ")
+    print("[LOG] client sleeps for 10 seconds ")
     time.sleep(10)
-    print(f"[log] client trying to get value from {get_api_host}")
-    get_reader, get_writer = await get_socket(get_api_host, get_api_port)
-    await send_get(get_writer, get_reader, dht_key)
-    print(f"[log] get successful")
+    print(f"[LOG] client trying to get value from {dht_1_host}")
+    get_reader, get_writer = await get_socket(dht_1_host, dht_1_port)
+    await send_get(get_writer, get_reader, dht_key_1)
+    print(f"[LOG] get action ended")
     # Clean up
     put_writer.close()
     get_writer.close()
