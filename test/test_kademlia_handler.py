@@ -1,3 +1,4 @@
+# File need to be placed in the DHT folder in order for the tests to work.
 import asyncio
 import struct
 from cryptography.hazmat.primitives.asymmetric import rsa

@@ -7,19 +7,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Global variable
-SIZE_FIELD_SIZE =2
-MESSAGE_TYPE_FIELD_SIZE =2
-
+SIZE_FIELD_SIZE = int(os.getenv("SIZE_FIELD_SIZE"))
+MESSAGE_TYPE_FIELD_SIZE = int(os.getenv("MESSAGE_TYPE_FIELD_SIZE"))
+@DeprecationWarning
 async def send_message(message_type: int, payload: bytes, host: str, port: int):
 
     # Declaration of reader and writer
     reader: StreamReader
     writer: StreamWriter
     full_response = None
-    reader, writer = await asyncio.open_connection(host, port)
+
     try:
         # Establish connection to server
-
+        reader, writer = await asyncio.open_connection(host, port)
 
         # Determine the size of the message and create the size field
         size_of_message: int = SIZE_FIELD_SIZE  + MESSAGE_TYPE_FIELD_SIZE + len(payload) # Total size including the size field
@@ -53,7 +53,7 @@ async def send_message(message_type: int, payload: bytes, host: str, port: int):
 
 
 
-
+@DeprecationWarning
 async def send_ping(host: str, port: int):
     a = 1
 

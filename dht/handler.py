@@ -240,7 +240,6 @@ class DHTHandler(Handler):
         index=0
         ttl: int = int.from_bytes(body[index:index+TTL_FIELD_SIZE], byteorder='big')
         index+=TTL_FIELD_SIZE
-        # TODO
         replication: int = int.from_bytes(body[index:index+REPLICATION_FIELD_SIZE], byteorder='big')
         index+=REPLICATION_FIELD_SIZE
         index+= RESERVED_FIELD_SIZE

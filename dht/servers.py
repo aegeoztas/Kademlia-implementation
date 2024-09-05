@@ -10,6 +10,13 @@ from handler import Handler, KademliaHandler, DHTHandler
 import config
 
 async def handle_connection(reader: StreamReader, writer: StreamWriter, handler: Handler):
+    """
+    This function is used to handle any incoming connection.
+    :param reader: The reader of the socket.
+    :param writer: The writer of the socket.
+    :param handler: The handler that will handle the message.
+    :return: None
+    """
 
     try:
         # Server read first two bytes to get size of message
@@ -42,7 +49,7 @@ async def start_server(handler: Handler, ip: str, port: int, handler_name: str):
 
 
 
-async def make_server(known_peer_ip=None, known_peer_port=None, known_peer_id=None):
+async def main():
 
     # Get ip and ports from configuration file
     kademlia_handler_ip, kademlia_handler_port = config.get_address_from_conf("p2p_address")
@@ -73,13 +80,7 @@ async def make_server(known_peer_ip=None, known_peer_port=None, known_peer_id=No
 
 if __name__ == "__main__":
 
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("-ip", "--known_peer_ip", type=str, required=False, help="ip of one known peer inside the kademlia network")
-    # parser.add_argument("-p", "--known_peer_port", type=int, required=False, help="port of one known peer inside the kademlia network")
-    # parser.add_argument("-id", "--known_peer_id", type=int, required=False, help="ID of one known peer inside the kademlia network")
-    # args = parser.parse_args()
-    # asyncio.run(main(args.known_peer_ip, args.known_peer_port, args.known_peer_id))
-    asyncio.run(make_server())
+    asyncio.run(main())
 
 
 
